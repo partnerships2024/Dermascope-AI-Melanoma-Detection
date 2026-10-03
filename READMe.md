@@ -626,15 +626,14 @@ This repository provides an **open and structured research environment for selec
 
 The repository covers the following research areas:
 
-- Artificial intelligence, machine learning, and deep learning
-- Computational and systems biology
-- Computational cancer research
-- Medical imaging and image segmentation
-- Multi-omics and gene-expression analysis
-- Genomic and molecular data analysis
-- Digital health and healthcare AI
-- Federated learning and privacy-preserving AI
-- Agentic AI and AI-driven virtual laboratories
-- Literature review and scientific research analysis
-- Reproducible computational experiments
+- Deep learning for dermatological image classification
+- Multimodal data fusion (visual and clinical metadata)
+- Feature-wise Linear Modulation (FiLM) for conditional feature learning
+- Transfer learning and fine-tuning of pretrained convolutional networks
+- Medical image preprocessing (hair removal, lesion segmentation, background suppression)
+- Class imbalance handling in clinical datasets (Focal Loss, asymmetric augmentation)
+- Uncertainty-aware inference and Test-Time Augmentation
+- Clinically optimised decision thresholds for high-sensitivity screening
+- Explainable and interpretable AI for healthcare
+- Reproducible computational experiments in computational dermatology
 - Research documentation, validation, and collaboration
