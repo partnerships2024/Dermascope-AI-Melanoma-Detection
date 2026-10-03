@@ -1,6 +1,6 @@
 <p align="center">
   <img
-    src="./Logo/Dermascope-AI-Melanoma-Detection.png"
+    src="./assets/Dermascope-AI-Melanoma-Detection.png"
     alt="Dermascope AI: Multimodal Deep Learning for Early Melanoma Detection"
     width="700"
   />
@@ -21,10 +21,9 @@ This GitHub repository serves as a structured, reproducible research workspace f
 - Deep learning-based classification of dermoscopic skin lesion images (7-class)
 - Multimodal data fusion combining visual features with clinical metadata
 - Feature-wise Linear Modulation (FiLM) for metadata-conditioned image classification
-- Transfer learning using EfficientNet-B3 pretrained on ImageNet
+- Transfer learning using EfficientNet-B4 pretrained on ImageNet
 - Advanced image preprocessing (hair removal, lesion segmentation, background suppression)
 - Class imbalance handling via Focal Loss, weighted sampling, and targeted augmentation
-- Explainable AI (XAI) through Grad-CAM attention visualisation
 - Monte Carlo Dropout for uncertainty quantification
 - Model export to ONNX format for deployment readiness
 - Reproducible computational experiments and scientific documentation
@@ -55,9 +54,8 @@ Design and implement **Dermascope AI**, a multimodal deep learning system that:
 1. Classifies dermoscopic images across **7 lesion categories** (including melanoma)
 2. Integrates **clinical metadata** (age, sex, anatomical site) via Feature-wise Linear Modulation (FiLM)
 3. Achieves **>90% sensitivity on melanoma** (clinical priority: minimise missed cancers)
-4. Provides **Grad-CAM explainability maps** for each prediction
-5. Quantifies **prediction uncertainty** via Monte Carlo Dropout
-6. Exports to **ONNX format** for deployment readiness
+4. Quantifies **prediction uncertainty** via Monte Carlo Dropout
+5. Exports to **ONNX format** for deployment readiness
 
 ### Research Question
 
@@ -122,13 +120,13 @@ df    █                                              115   ( 1%)
 │  │  ├── DullRazor (hair)    │    │  ├── Imputation (median age)  │          │
 │  │  ├── Lesion segmentation │    │  ├── One-Hot Encoding         │          │
 │  │  ├── Background blur     │    │  └── MLP Encoder              │          │
-│  │  └── Resize → 300×300    │    │      ├── Linear(D_meta, 256)  │          │
+│  │  └── Resize → 380×380    │    │      ├── Linear(D_meta, 256)  │          │
 │  │                          │    │      ├── ReLU + BatchNorm     │          │
-│  │  EfficientNet-B3:        │    │      ├── Linear(256, 128)     │          │
+│  │  EfficientNet-B4:        │    │      ├── Linear(256, 128)     │          │
 │  │  ├── MBConv blocks       │    │      └── Output: γ, β         │          │
 │  │  ├── SE attention        │    │          (gamma, beta vectors) │          │
 │  │  ├── Compound scaling    │    │                               │          │
-│  │  └── Features: 1536-dim  │    └───────────────────────────────┘          │
+│  │  └── Features: 1792-dim  │    └───────────────────────────────┘          │
 │  └──────────┬───────────────┘                    │                          │
 │             │                                    │                          │
 │             ▼                                    ▼                          │
@@ -141,7 +139,7 @@ df    █                                              115   ( 1%)
 │  │              CLASSIFICATION HEAD                      │                   │
 │  │  ├── Global Average Pooling                           │                   │
 │  │  ├── Dropout (p=0.4)                                  │                   │
-│  │  ├── Linear(1536 → 512) + ReLU + BatchNorm           │                   │
+│  │  ├── Linear(1792 → 512) + ReLU + BatchNorm           │                   │
 │  │  ├── Dropout (p=0.3)                                  │                   │
 │  │  └── Linear(512 → 7) → Softmax                       │                   │
 │  └──────────────────────┬───────────────────────────────┘                   │
@@ -149,19 +147,19 @@ df    █                                              115   ( 1%)
 │  ┌──────────────────────────────────────────────────────┐                   │
 │  │                     OUTPUTS                           │                   │
 │  │  ├── Predicted class + probabilities (7 classes)      │                   │
-│  │  ├── Grad-CAM attention heatmap                       │                   │
 │  │  └── Uncertainty score (Monte Carlo Dropout)          │                   │
 │  └──────────────────────────────────────────────────────┘                   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Why EfficientNet-B3?
+### Why EfficientNet-B4?
 
 | Model | Parameters | Top-1 ImageNet | Size | Selection |
 |:---|:---|:---|:---|:---|
 | ResNet-50 | 25.6M | 76.1% | 98 MB | ❌ Older architecture, less efficient |
 | EfficientNet-B0 | 5.3M | 77.1% | 21 MB | ⚠️ Insufficient capacity for medical imaging |
-| **EfficientNet-B3** | **12M** | **81.6%** | **48 MB** | **✅ Optimal performance-to-size ratio** |
+| EfficientNet-B3 | 12M | 81.6% | 48 MB | ⚠️ Good but limited feature capacity |
+| **EfficientNet-B4** | **19M** | **82.9%** | **75 MB** | **✅ Optimal performance for medical imaging** |
 | EfficientNet-B7 | 66M | 84.3% | 256 MB | ❌ Overfitting risk, excessive compute |
 
 ### Why Feature-wise Linear Modulation (FiLM)?
@@ -179,40 +177,37 @@ where $F_i$ are image feature maps, and $\gamma_i$, $\beta_i$ are learned affine
 ```text
 Dermascope-AI-Melanoma-Detection/
 │
-├── README.md                          # This file
-├── requirements.txt                   # Python dependencies
-├── .gitignore                         # Git ignore rules
+├── README.md
+├── LICENSE
+├── requirements.txt
+├── .gitignore
 │
-├── Logo/
-│   ├── Dermascope-AI-Melanoma-Detection.png
-│   └── README.md
+├── assets/                            # Logo, GIFs, images for the README
 │
 ├── src/                               # Source code
 │   ├── __init__.py
 │   ├── config.py                      # Hyperparameters and configuration
 │   ├── preprocessing.py               # Image preprocessing pipeline
 │   ├── dataset.py                     # Dataset class and data loading
-│   ├── model.py                       # DermaScope model architecture (FiLM)
+│   ├── model.py                       # DermaScope model (EfficientNet-B4 + FiLM)
 │   ├── train.py                       # Two-phase training pipeline
 │   ├── evaluate.py                    # Evaluation and clinical metrics
-│   ├── gradcam.py                     # Grad-CAM explainability
 │   ├── export.py                      # ONNX model export
 │   └── utils.py                       # Utility functions
 │
-├── notebooks/                         # Jupyter notebooks
-│   └── README.md
+├── notebooks/                         # Jupyter / Colab notebooks
 │
 ├── data/                              # Dataset (not tracked in git)
-│   └── README.md                      # Download instructions
 │
 ├── models/                            # Saved model checkpoints (not tracked)
-│   └── README.md
 │
 ├── results/                           # Experimental results and figures
-│   └── README.md
 │
-└── docs/                              # Documentation and research paper
-    └── README.md
+├── docs/                              # Documentation and research paper
+│
+├── scripts/                           # Training / evaluation scripts
+│
+└── tests/                             # Unit tests
 ```
 
 ---
@@ -237,7 +232,7 @@ Dermascope-AI-Melanoma-Detection/
 
 ```text
 Training:
-├── Resize(300, 300)
+├── Resize(380, 380)
 ├── HorizontalFlip(p=0.5)
 ├── VerticalFlip(p=0.5)
 ├── RandomRotate90(p=0.5)
@@ -248,7 +243,7 @@ Training:
 └── Normalize(ImageNet mean/std) + ToTensor
 
 Validation/Test:
-├── Resize(300, 300)
+├── Resize(380, 380)
 └── Normalize(ImageNet mean/std) + ToTensor
 ```
 
@@ -264,17 +259,6 @@ Validation/Test:
 | **Melanoma Specificity** | > 0.85 | > 0.92 |
 
 > **Clinical priority:** Melanoma sensitivity (recall) is the most critical metric. Missing a melanoma is far more dangerous than a false alarm.
-
----
-
-## Explainability — Grad-CAM
-
-Gradient-weighted Class Activation Mapping (Grad-CAM) is implemented to provide visual explanations for each model prediction. The system generates attention heatmaps showing which regions of the dermoscopic image the model focuses on when making its classification decision.
-
-This is essential for:
-- **Clinical trust** — Verifying that the model examines the lesion, not background artefacts
-- **Model debugging** — Identifying failure modes (e.g., attention on hair, ruler markings)
-- **Research validation** — Ensuring learned features align with dermatological patterns (ABCDE criteria)
 
 ---
 
@@ -332,12 +316,6 @@ python -m src.train --full
 python -m src.evaluate --model-path models/best_model_final.pt --output-dir results/
 ```
 
-### Grad-CAM Visualisation
-
-```bash
-python -m src.gradcam --model-path models/best_model_final.pt --image-path <path_to_image>
-```
-
 ### ONNX Export
 
 ```bash
@@ -391,59 +369,59 @@ A well-documented research repository should enable another researcher to unders
 | Repository | Access |
 |:---|:---|
 | **CHI Lab — Foundations and Practical Intuition in Machine Learning & Deep Learning** | [![GitHub](https://img.shields.io/badge/GitHub-Open%20Science-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/didarmurad2019/ICRI-STE-AI-ML-Healthcare.git) |
-| **CHI Lab — ECR Research Training on Lung and/or Pancreatic Cancer** | [![GitHub](https://img.shields.io/badge/GitHub-Open%20Science-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/partnerships2024/CHI-Lab-Research-Cancer) |
-| **Virtual Lab: An AI-Driven Agentic System for PanTS Using 3D Medical Images** | [![GitHub](https://img.shields.io/badge/GitHub-Open%20Science-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/partnerships2024/Dermascope-AI-Melanoma-Detection) |
+| **CHI Lab — ECR Research Training on Lung and/or Pancreatic Cancer** | [![GitHub](https://img.shields.io/badge/GitHub-Open%20Science%20%7C%20ECR%20Training-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/partnerships2024/CHI-Lab-Research-Pancreatic-Cancer.git) |
+| **Virtual Lab: An AI-Driven Agentic System for PanTS Using 3D Medical Images** | [![GitHub](https://img.shields.io/badge/GitHub-Main%20Research%20Contribution-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/partnerships2024/Virtual-Lab-AI-Driven-Agentic-System-PanTS-Main-Project.git) |
 
 ---
 
-## CHI Lab Google Colab
+# CHI Lab Google Colab
 
-Google Colab provides a convenient cloud-based environment for running selected CHI Lab notebooks without requiring a complete local software installation.
+**Google Colab** provides a convenient cloud-based environment for running selected CHI Lab notebooks without requiring a complete local software installation.
 
-[![Open In Colab](https://img.shields.io/badge/Google%20Colab-CHI%20Lab-F9AB00?style=for-the-badge&logo=googlecolab&logoColor=white)](https://colab.research.google.com/)
+[![Google Colab](https://img.shields.io/badge/Google%20Colab-Open%20CHI%20Lab%20Notebook-F9AB00?style=for-the-badge&logo=googlecolab&logoColor=white)](https://colab.research.google.com/drive/1G0gwLBB0ukdyIkIkklgy-LOvrFPLJ6l6?usp=sharing)
 
 ---
 
-## CHI Lab Research Project Document
+# CHI Lab Research Project Document
 
-[![Research Document](https://img.shields.io/badge/Research%20Document-Dermascope%20AI-blue?style=for-the-badge&logo=adobeacrobatreader&logoColor=white)](./docs/Dermascope_AI_Research_Paper_First_draft.pdf)
+[![Research Document](https://img.shields.io/badge/CHI%20Lab-Research%20Document-0077B6?style=for-the-badge&logo=googledocs&logoColor=white)](./docs/Dermascope_AI_Research_Paper_First_draft.pdf)
 
 This document provides supporting information for the CHI Lab research activities and project development process.
 
 ---
 
-## Important Links
+# Important Links
 
 | Resource | Link |
 |:---|:---|
-| **Future Leaders Network** | [![Future Leaders](https://img.shields.io/badge/Future%20Leaders-Network-green?style=for-the-badge)](https://futureleaders.network/) |
-| **YouTube Channel** | [![YouTube](https://img.shields.io/badge/YouTube-CHI%20Lab-red?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/) |
-| **WhatsApp Channel** | [![WhatsApp](https://img.shields.io/badge/WhatsApp-Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/) |
-| **CHI Lab Google Document** | [![Google Docs](https://img.shields.io/badge/Google%20Docs-CHI%20Lab-4285F4?style=for-the-badge&logo=googledocs&logoColor=white)](https://docs.google.com/) |
-| **Research Concept Note** | [![Template](https://img.shields.io/badge/Research-Concept%20Note%20Template-orange?style=for-the-badge)](https://docs.google.com/) |
-| **CHI Lab Book Direction** | [![Book](https://img.shields.io/badge/CHI%20Lab-Book%20Direction-purple?style=for-the-badge)](https://docs.google.com/) |
+| **Future Leaders Network** | [![Future Leaders](https://img.shields.io/badge/Future%20Leaders-ECR%20Network-6C5CE7?style=for-the-badge&logo=googlechrome&logoColor=white)](https://icriste.com/future-leaders/) |
+| **YouTube Channel** | [![YouTube](https://img.shields.io/badge/YouTube-ICRI--STE%20Insights-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@ICRI-STEInsights) |
+| **WhatsApp Channel** | [![WhatsApp](https://img.shields.io/badge/WhatsApp-ICRI--STE%20Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/channel/0029Vb7tRBi3LdQcB3DEYU2F) |
+| **CHI Lab Google Document** | [![Google Docs](https://img.shields.io/badge/Google%20Docs-Help%20Desk%20in%20R%26D-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://docs.google.com/document/d/10ijo9jq8jDHfeKm0g2J2bKDr94_N3Q633KCtohv06o8/edit?usp=sharing) |
+| **Research Concept Note** | [![Research Concept Note Template](https://img.shields.io/badge/Research%20Concept%20Note-Template-F39C12?style=for-the-badge&logo=google&logoColor=white)](https://docs.google.com/document/d/1bc9-B7rEsXqSk5xmW-SJpFm8GYLqN-8LLq2sdW6-zBA/edit?usp=sharing) |
+| **CHI Lab Book Direction** | [![CHI Lab Book Direction](https://img.shields.io/badge/CHI%20Lab%20Book%20Direction-Computational%20Healthcare%20Intelligence-F39C12?style=for-the-badge&logo=google&logoColor=white)](https://drive.google.com/file/d/1uWiaKgm3xkiVxtT468gQ8cMiN-ugLNCg/view?usp=drive_link) |
 | **Research Proposals / Project Calls** | *To be added* |
 
 ---
 
-## Research Ethics & Responsible AI
+# Research Ethics & Responsible AI
 
 Healthcare and biomedical research require particular attention to:
 
-- **Privacy and data protection**
-- **Data governance**
-- **Patient confidentiality**
-- **Dataset licensing and terms of use**
-- **Reproducibility**
-- **Bias and fairness**
-- **Model interpretability**
-- **Responsible AI**
-- **Scientific integrity**
-- **Appropriate attribution**
+- Privacy and data protection
+- Data governance
+- Patient confidentiality
+- Dataset licensing and terms of use
+- Reproducibility
+- Bias and fairness
+- Model interpretability
+- Responsible AI
+- Scientific integrity
+- Appropriate attribution
 
 This repository is intended for **research, training, and educational purposes**.
 
-> Computational results should not be interpreted as clinical advice or used for clinical decision-making without appropriate clinical validation, ethical oversight, governance, and regulatory approval, where applicable.
+Computational results should not be interpreted as clinical advice or used for clinical decision-making without appropriate **clinical validation, ethical oversight, governance, and regulatory approval**, where applicable.
 
 ### Dataset Bias Considerations
 
@@ -455,16 +433,16 @@ The HAM10000 dataset has known limitations:
 
 ---
 
-## Citation & Attribution
+# Citation & Attribution
 
 When using external datasets, models, software, code, or published methodologies:
 
-- Cite the original research publication.
-- Cite the dataset and its source.
-- Follow the applicable dataset and software licences.
-- Acknowledge the original authors and contributors.
-- Clearly distinguish reproduced work from original contributions.
-- Document any modifications made to the original methodology or implementation.
+1. Cite the original research publication.
+2. Cite the dataset and its source.
+3. Follow the applicable dataset and software licences.
+4. Acknowledge the original authors and contributors.
+5. Clearly distinguish reproduced work from original contributions.
+6. Document any modifications made to the original methodology or implementation.
 
 ### Example Citation
 
@@ -518,15 +496,15 @@ When using external datasets, models, software, code, or published methodologies
 
 ---
 
-## Research Philosophy
+# Research Philosophy
 
-> *From computational experiments to reproducible scientific discovery.*
+> **From computational experiments to reproducible scientific discovery.**
 
 ---
 
-## Repository Vision
+# Repository Vision
 
-The long-term goal of this repository is to develop a structured, reproducible, and collaborative research ecosystem in which ECRs can progress from foundational research skills to advanced interdisciplinary research.
+The long-term goal of this repository is to develop a **structured, reproducible, and collaborative research ecosystem** in which ECRs can progress from foundational research skills to advanced interdisciplinary research.
 
 The CHI Lab research workflow can be summarised as:
 
@@ -569,39 +547,35 @@ The CHI Lab research workflow can be summarised as:
 
 ---
 
-## Computational Healthcare Intelligence Lab (CHI Lab)
-
-### Research Leadership
+# Computational Healthcare Intelligence Lab (CHI Lab) 
+## Research Leadership
 
 **Dr. Didar Murad**
 
 Principal Investigator & Founding Director
 
-CHI Lab, ICRI-STE
+**CHI Lab, ICRI-STE** 
 
-This project forms part of the CHI Lab's computational healthcare and cancer research activities, integrating systems-oriented computational research, cancer genomics, and artificial intelligence/deep learning.
+This project forms part of the CHI Lab's computational healthcare and cancer research activities, integrating **systems-oriented computational research, cancer genomics, and artificial intelligence/deep learning**
 
-[![CHI Lab](https://img.shields.io/badge/CHI%20Lab-ICRI--STE-blue?style=for-the-badge)](https://icriste.org/)
-
-**Computational Healthcare Intelligence Lab (CHI Lab)**&emsp;&emsp;&emsp;**International Council for Research & Innovation in STE (ICRI-STE)**
+[![CHI Lab](https://img.shields.io/badge/CHI%20Lab-Research-0A7EA4?style=for-the-badge)](https://icriste.com/computational-healthcare-intelligence-lab-chi-lab/)
+[![ICRI-STE Website](https://img.shields.io/badge/Website-ICRI--STE-00A6A6?style=for-the-badge&logo=googlechrome&logoColor=white)](https://icriste.com)
 
 ---
 
-### About CHI Lab
+## About CHI Lab
 
-The **Computational Healthcare Intelligence Lab (CHI Lab)** is a dry research laboratory focused on the integration of computational science, artificial intelligence and machine learning (AI/ML), systems biology, biomedical modelling, medical imaging, and intelligent healthcare systems.
+The **Computational Healthcare Intelligence Lab (CHI Lab)** is a dry research laboratory focused on the integration of **computational science, artificial intelligence and machine learning (AI/ML), systems biology, biomedical modelling, medical imaging, and intelligent healthcare systems**.
 
 ### Current CHI Lab Research Direction
 
 **Computational Cancer Research — Lung and Pancreatic Cancer**
 
-This repository provides an open and structured research environment for selected Early Career Researchers (ECRs) of ICRI-STE, supporting the development of research skills through literature-driven projects, reproducible computational experiments, scientific documentation, and collaborative research.
+This repository provides an **open and structured research environment for selected Early Career Researchers (ECRs) of ICRI-STE**, supporting the development of research skills through literature-driven projects, reproducible computational experiments, scientific documentation, and collaborative research.
 
 > **Learn → Read → Implement → Experiment → Analyse → Document → Reproduce → Collaborate → Publish**
 
----
-
-### Research Focus
+## Research Focus
 
 The repository covers the following research areas:
 
@@ -617,52 +591,3 @@ The repository covers the following research areas:
 - Literature review and scientific research analysis
 - Reproducible computational experiments
 - Research documentation, validation, and collaboration
-
----
-
-## Literature & Research Papers
-
-The repository provides a curated space for **research papers, literature notes, methodological resources, and paper-based mini-projects**.
-
-Literature study should extend beyond simply reading or downloading papers. ECRs are encouraged to critically document:
-
-1. Research problem
-2. Scientific motivation
-3. Research gap
-4. Dataset or data source
-5. Methodology
-6. Computational framework
-7. Main findings
-8. Limitations
-9. Reproducibility considerations
-10. Possible improvements
-11. Potential CHI Lab research direction
-
-### Suggested Literature Structure
-
-```text
-literature/
-│
-├── medical-imaging/
-├── computational-biology/
-├── systems-biology/
-├── healthcare-ai/
-├── federated-learning/
-├── agentic-ai/
-├── digital-twins/
-└── cancer-ai/
-```
-
-Where appropriate, an individual paper or reproduction study may follow:
-
-```text
-Paper/
-├── notes.md
-├── figures/
-├── supplementary/
-└── reproduction/
-```
-
-> **Copyright and licensing:** Only upload papers, supplementary materials, datasets, or other resources when redistribution is permitted. Otherwise, provide the official DOI, publisher page, preprint, project page, or repository link.
-
----

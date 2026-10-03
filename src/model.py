@@ -1,5 +1,5 @@
 """
-DermaScope Model Architecture with EfficientNet-B3/B4 backbone and FiLM metadata fusion.
+DermaScope Model Architecture with EfficientNet-B4 backbone and FiLM metadata fusion.
 """
 import torch
 import torch.nn as nn
@@ -35,18 +35,18 @@ class FiLMLayer(nn.Module):
 class DermaScope(nn.Module):
     """
     Multimodal deep learning system for early melanoma detection.
-    Uses EfficientNet backbone and FiLM for metadata fusion.
+    Uses EfficientNet-B4 backbone and FiLM for metadata fusion.
     """
-    def __init__(self, num_classes: int = 7, metadata_dim: int = 18, backbone_name: str = 'efficientnet_b3'):
+    def __init__(self, num_classes: int = 7, metadata_dim: int = 18, backbone_name: str = 'efficientnet_b4'):
         super(DermaScope, self).__init__()
         
-        # Backbone (EfficientNet-B3)
-        if backbone_name == 'efficientnet_b3':
-            self.backbone = models.efficientnet_b3(weights=models.EfficientNet_B3_Weights.IMAGENET1K_V1)
-            feature_dim = 1536
-        else:
+        # Backbone (EfficientNet-B4 by default)
+        if backbone_name == 'efficientnet_b4':
             self.backbone = models.efficientnet_b4(weights=models.EfficientNet_B4_Weights.IMAGENET1K_V1)
             feature_dim = 1792
+        else:
+            self.backbone = models.efficientnet_b3(weights=models.EfficientNet_B3_Weights.IMAGENET1K_V1)
+            feature_dim = 1536
             
         # Remove original classifier
         self.backbone.classifier = nn.Identity()

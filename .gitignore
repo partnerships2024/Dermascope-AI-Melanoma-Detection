@@ -31,8 +31,8 @@ data/*.jpg
 data/*.jpeg
 data/*.png
 !results/*.png
-!Logo/*.png
-!Logo/*.jpg
+!assets/*.png
+!assets/*.jpg
 
 # Models
 *.pt
