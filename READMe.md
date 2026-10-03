@@ -8,7 +8,7 @@
 
 ---
 
-# Dermascope AI: A Multimodal Deep Learning System for Early Melanoma Detection via Feature-wise Linear Modulation
+# Dermascope AI: Multimodal Binary Classification of Skin Lesions via Feature-wise Linear Modulation
 
 > **CHI Lab ECR Research Project — Computational Dermatology & Medical Imaging AI**
 
@@ -18,14 +18,15 @@
 
 This GitHub repository serves as a structured, reproducible research workspace for the **Dermascope AI** project, developed as part of **CHI Lab ECR research activities**. The project integrates:
 
-- Deep learning-based classification of dermoscopic skin lesion images (7-class)
+- Deep learning-based **binary classification** of dermoscopic skin lesion images (Benign vs. Malignant/Suspect)
 - Multimodal data fusion combining visual features with clinical metadata
-- Feature-wise Linear Modulation (FiLM) for metadata-conditioned image classification
-- Transfer learning using EfficientNet-B4 pretrained on ImageNet
-- Advanced image preprocessing (hair removal, lesion segmentation, background suppression)
-- Class imbalance handling via Focal Loss, weighted sampling, and targeted augmentation
-- Monte Carlo Dropout for uncertainty quantification
-- Model export to ONNX format for deployment readiness
+- **Feature-wise Linear Modulation (FiLM)** for metadata-conditioned image classification
+- Transfer learning using **EfficientNet-B4** pretrained on ImageNet (with ResNet-50 and DenseNet-121 alternatives)
+- Advanced image preprocessing: **DullRazor** hair removal, **SAM**-guided lesion segmentation, **Medical Bokeh** background suppression
+- Class imbalance handling via **Focal Loss** (α=0.75, γ=2.0) and asymmetric data augmentation
+- **Test-Time Augmentation (TTA)** with 5 geometric views for robust inference
+- Clinically optimised decision threshold (0.4607) for melanoma sensitivity
+- **Gradio** web interface for interactive clinical demonstration
 - Reproducible computational experiments and scientific documentation
 
 > ⚠️ **Medical Disclaimer:** This system is a research prototype developed for educational and research purposes. It is **NOT** a certified medical device (CE/FDA). It does **NOT** replace professional dermatological assessment. Any suspicious skin lesion requires clinical evaluation and, where appropriate, biopsy. Computational results should not be interpreted as clinical advice or used for clinical decision-making without appropriate clinical validation, ethical oversight, governance, and regulatory approval.
@@ -51,15 +52,15 @@ Expert dermatologists achieve 65–80% diagnostic accuracy on dermoscopic images
 
 Design and implement **Dermascope AI**, a multimodal deep learning system that:
 
-1. Classifies dermoscopic images across **7 lesion categories** (including melanoma)
-2. Integrates **clinical metadata** (age, sex, anatomical site) via Feature-wise Linear Modulation (FiLM)
-3. Achieves **>90% sensitivity on melanoma** (clinical priority: minimise missed cancers)
-4. Quantifies **prediction uncertainty** via Monte Carlo Dropout
-5. Exports to **ONNX format** for deployment readiness
+1. Performs **binary classification** of dermoscopic lesions: **Benign** (nv, bkl, df, vasc) vs. **Malignant/Suspect** (mel, bcc, akiec)
+2. Integrates **19 clinical metadata features** (age, sex, anatomical localisation) via FiLM
+3. Achieves **high melanoma sensitivity** (clinical priority: minimise missed cancers)
+4. Provides **Test-Time Augmentation** for robust and reliable predictions
+5. Implements a **Gradio**-based interface for interactive clinical demonstration
 
 ### Research Question
 
-> *Can a multimodal deep learning architecture combining dermoscopic image analysis with clinical metadata through Feature-wise Linear Modulation (FiLM) improve melanoma detection sensitivity and overall diagnostic accuracy compared to image-only classification approaches?*
+> *Can a multimodal deep learning architecture combining dermoscopic image analysis with clinical metadata through Feature-wise Linear Modulation (FiLM) improve melanoma detection sensitivity compared to image-only classification approaches?*
 
 ---
 
@@ -70,36 +71,19 @@ Design and implement **Dermascope AI**, a multimodal deep learning system that:
 | **Name** | HAM10000 (Human Against Machine with 10,000 training images) |
 | **Source** | [ISIC Archive](https://www.isic-archive.com/) / [Kaggle](https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000) |
 | **Total Images** | 10,015 dermoscopic images |
-| **Image Resolution** | 600×450 RGB |
-| **Classes** | 7 diagnostic categories |
+| **Image Resolution** | Resized to 512×512 RGB |
+| **Task** | Binary classification |
 | **Annotation** | Histopathologically confirmed or expert consensus |
-| **Metadata** | Age, sex, anatomical localisation |
+| **Metadata** | Age, sex (3 categories), anatomical localisation (15 categories) |
 
-### Diagnostic Categories
+### Binary Grouping Strategy
 
-| Code | Pathology | Type | Clinical Severity | Images (~) |
-|:---|:---|:---|:---|:---|
-| `mel` | **Melanoma** | Malignant ⚠️ | **Life-threatening** | ~1,113 |
-| `bcc` | Basal cell carcinoma | Malignant ⚠️ | Serious | ~514 |
-| `akiec` | Actinic keratosis | Pre-malignant ⚠️ | Moderate | ~327 |
-| `bkl` | Benign keratosis | Benign ✅ | Low | ~1,099 |
-| `df` | Dermatofibroma | Benign ✅ | Low | ~115 |
-| `nv` | Melanocytic naevus | Benign ✅ | Low | ~6,705 |
-| `vasc` | Vascular lesion | Benign ✅ | Low | ~142 |
+The original 7 diagnostic categories are grouped into a clinically meaningful binary classification:
 
-### Class Imbalance Challenge
-
-```text
-nv    ████████████████████████████████████████████  6,705  (67%)
-mel   ███████                                       1,113  (11%)
-bkl   ███████                                       1,099  (11%)
-bcc   ███                                            514   ( 5%)
-akiec ██                                             327   ( 3%)
-vasc  █                                              142   ( 1%)
-df    █                                              115   ( 1%)
-```
-
-> **Critical note:** The `nv` (naevus) class represents 67% of the dataset. A naïve classifier predicting "naevus" for every image would achieve 67% accuracy while missing **all** cancers. This project employs Focal Loss, weighted sampling, and targeted augmentation to address this severe imbalance.
+| Group | Original Classes | Clinical Rationale |
+|:---|:---|:---|
+| **Malignant / Suspect** ⚠️ | `mel` (Melanoma), `bcc` (Basal cell carcinoma), `akiec` (Actinic keratosis) | Life-threatening or pre-malignant — require clinical intervention |
+| **Benign** ✅ | `nv` (Naevus), `bkl` (Benign keratosis), `df` (Dermatofibroma), `vasc` (Vascular lesion) | Low risk — routine monitoring |
 
 > **Important:** Do not upload restricted, confidential, patient-identifiable, or otherwise sensitive healthcare data to this repository. Use public, synthetic, or appropriately de-identified datasets and comply with the relevant dataset licence, terms of use, and data-governance requirements.
 
@@ -108,67 +92,102 @@ df    █                                              115   ( 1%)
 ## System Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    DERMASCOPE AI — MULTIMODAL ARCHITECTURE                   │
-│                                                                             │
-│  📸 Input: Dermoscopic Image (600×450 RGB) + Clinical Metadata              │
-│                                                                             │
-│  ┌──────────────────────────┐    ┌───────────────────────────────┐          │
-│  │   IMAGE BRANCH            │    │   METADATA BRANCH (FiLM)      │          │
-│  │                          │    │                               │          │
-│  │  Preprocessing:          │    │  Input: Age, Sex, Location    │          │
-│  │  ├── DullRazor (hair)    │    │  ├── Imputation (median age)  │          │
-│  │  ├── Lesion segmentation │    │  ├── One-Hot Encoding         │          │
-│  │  ├── Background blur     │    │  └── MLP Encoder              │          │
-│  │  └── Resize → 380×380    │    │      ├── Linear(D_meta, 256)  │          │
-│  │                          │    │      ├── ReLU + BatchNorm     │          │
-│  │  EfficientNet-B4:        │    │      ├── Linear(256, 128)     │          │
-│  │  ├── MBConv blocks       │    │      └── Output: γ, β         │          │
-│  │  ├── SE attention        │    │          (gamma, beta vectors) │          │
-│  │  ├── Compound scaling    │    │                               │          │
-│  │  └── Features: 1792-dim  │    └───────────────────────────────┘          │
-│  └──────────┬───────────────┘                    │                          │
-│             │                                    │                          │
-│             ▼                                    ▼                          │
-│  ┌──────────────────────────────────────────────────────┐                   │
-│  │              FiLM MODULATION LAYER                    │                   │
-│  │         output = γ ⊙ image_features + β               │                   │
-│  └──────────────────────┬───────────────────────────────┘                   │
-│                         ▼                                                   │
-│  ┌──────────────────────────────────────────────────────┐                   │
-│  │              CLASSIFICATION HEAD                      │                   │
-│  │  ├── Global Average Pooling                           │                   │
-│  │  ├── Dropout (p=0.4)                                  │                   │
-│  │  ├── Linear(1792 → 512) + ReLU + BatchNorm           │                   │
-│  │  ├── Dropout (p=0.3)                                  │                   │
-│  │  └── Linear(512 → 7) → Softmax                       │                   │
-│  └──────────────────────┬───────────────────────────────┘                   │
-│                         ▼                                                   │
-│  ┌──────────────────────────────────────────────────────┐                   │
-│  │                     OUTPUTS                           │                   │
-│  │  ├── Predicted class + probabilities (7 classes)      │                   │
-│  │  └── Uncertainty score (Monte Carlo Dropout)          │                   │
-│  └──────────────────────────────────────────────────────┘                   │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                   DERMASCOPE AI — MULTIMODAL FiLM ARCHITECTURE               │
+│                                                                              │
+│  📸 Input: Dermoscopic Image (512×512 RGB) + Clinical Metadata (19 features) │
+│                                                                              │
+│  ┌─────────────────────────────┐   ┌─────────────────────────────────┐       │
+│  │   IMAGE BRANCH               │   │   METADATA BRANCH                │       │
+│  │                             │   │                                 │       │
+│  │  Preprocessing:             │   │  Input: 19 features             │       │
+│  │  ├── DullRazor (hair)       │   │  ├── Age (normalised /85)       │       │
+│  │  ├── SAM lesion segment.    │   │  ├── Sex (3-dim one-hot)        │       │
+│  │  ├── Medical Bokeh blur     │   │  └── Localisation (15-dim OH)   │       │
+│  │  └── Resize → 512×512      │   │                                 │       │
+│  │                             │   │  MLP Encoder:                   │       │
+│  │  EfficientNet-B4:           │   │  ├── Linear(19 → 64)+BN+SiLU   │       │
+│  │  ├── Pretrained ImageNet    │   │  ├── Dropout(0.2)               │       │
+│  │  └── Features → 1792-dim   │   │  └── Linear(64 → 32)+BN+SiLU   │       │
+│  │                             │   │      Output: 32-dim vector      │       │
+│  │  Compression:               │   │                                 │       │
+│  │  └── Linear(1792→512)+BN+SiLU│   └─────────────────────────────────┘       │
+│  │      Output: 512-dim vector │                    │                        │
+│  └──────────────┬──────────────┘                    │                        │
+│                 │                                    │                        │
+│                 ▼                                    ▼                        │
+│  ┌───────────────────────────────────────────────────────────┐               │
+│  │                   FiLM MODULATION LAYER                    │               │
+│  │      output = vision × (1 + γ(tabular)) + β(tabular)      │               │
+│  │      γ : Linear(32 → 512)    β : Linear(32 → 512)         │               │
+│  └───────────────────────────┬───────────────────────────────┘               │
+│                              ▼                                               │
+│  ┌───────────────────────────────────────────────────────────┐               │
+│  │                 CLASSIFICATION HEAD                        │               │
+│  │  ├── Linear(512 → 256) + BatchNorm + SiLU                │               │
+│  │  ├── Dropout(0.4)                                         │               │
+│  │  └── Linear(256 → 1) → Sigmoid                           │               │
+│  └───────────────────────────┬───────────────────────────────┘               │
+│                              ▼                                               │
+│  ┌───────────────────────────────────────────────────────────┐               │
+│  │                      OUTPUT                                │               │
+│  │  ├── Binary prediction: Benign (0) vs. Malignant (1)      │               │
+│  │  └── Probability score (clinical threshold: 0.4607)       │               │
+│  └───────────────────────────────────────────────────────────┘               │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Why EfficientNet-B4?
+### Supported Backbones
 
-| Model | Parameters | Top-1 ImageNet | Size | Selection |
-|:---|:---|:---|:---|:---|
-| ResNet-50 | 25.6M | 76.1% | 98 MB | ❌ Older architecture, less efficient |
-| EfficientNet-B0 | 5.3M | 77.1% | 21 MB | ⚠️ Insufficient capacity for medical imaging |
-| EfficientNet-B3 | 12M | 81.6% | 48 MB | ⚠️ Good but limited feature capacity |
-| **EfficientNet-B4** | **19M** | **82.9%** | **75 MB** | **✅ Optimal performance for medical imaging** |
-| EfficientNet-B7 | 66M | 84.3% | 256 MB | ❌ Overfitting risk, excessive compute |
+| Model | Parameters | Features | Selection |
+|:---|:---|:---|:---|
+| **EfficientNet-B4** | 19M | 1792-dim | **✅ Primary backbone** |
+| ResNet-50 | 25.6M | 2048-dim | Alternative (via `Dermascope_FiLM_Alternative`) |
+| DenseNet-121 | 8M | 1024-dim | Alternative (via `Dermascope_FiLM_Alternative`) |
+
+All backbones pass through a shared compression layer (→ 512-dim) before FiLM modulation, ensuring architecture consistency.
 
 ### Why Feature-wise Linear Modulation (FiLM)?
 
 FiLM (Perez et al., 2018) provides an elegant mechanism for conditioning visual features on auxiliary metadata:
 
-$$\text{FiLM}(F_i \mid \gamma_i, \beta_i) = \gamma_i \cdot F_i + \beta_i$$
+$$\text{FiLM}(v, t) = v \odot (1 + \gamma(t)) + \beta(t)$$
 
-where $F_i$ are image feature maps, and $\gamma_i$, $\beta_i$ are learned affine transformation parameters generated from clinical metadata. This allows the model to dynamically modulate its visual processing based on patient demographics and lesion localisation — mimicking how dermatologists contextualise visual patterns with clinical information.
+where $v$ is the compressed visual feature vector (512-dim), and $\gamma(t)$, $\beta(t)$ are learned affine transformation parameters generated from the 32-dim tabular encoding. This allows the model to dynamically modulate its visual processing based on patient demographics and lesion localisation — mimicking how dermatologists contextualise visual patterns with clinical information.
+
+---
+
+## Image Preprocessing Pipeline
+
+```text
+Raw Dermoscopic Image (600×450)
+        │
+        ▼
+┌──────────────────────────────────┐
+│  1. DullRazor Hair Removal       │
+│  ├── Black-Hat filter (17×17)    │
+│  ├── Top-Hat filter (17×17)      │
+│  ├── Combined mask + dilation    │
+│  └── Telea inpainting (r=5)     │
+└──────────────┬───────────────────┘
+               ▼
+┌──────────────────────────────────┐
+│  2. SAM Lesion Segmentation      │
+│  ├── CIELAB colour space         │
+│  ├── Skin-border sampling        │
+│  ├── Anomaly map + central bias  │
+│  └── SAM point-guided mask       │
+└──────────────┬───────────────────┘
+               ▼
+┌──────────────────────────────────┐
+│  3. Medical Bokeh                │
+│  ├── Gaussian blur (85×85)       │
+│  ├── Soft mask feathering (25×25)│
+│  └── Alpha blending              │
+└──────────────┬───────────────────┘
+               ▼
+     Clean 512×512 Image
+```
 
 ---
 
@@ -177,88 +196,116 @@ where $F_i$ are image feature maps, and $\gamma_i$, $\beta_i$ are learned affine
 ```text
 Dermascope-AI-Melanoma-Detection/
 │
-├── README.md
-├── LICENSE
-├── requirements.txt
-├── .gitignore
+├── README.md                              # This file
+├── LICENSE                                # Project licence
+├── requirements.txt                       # Python dependencies
+├── .gitignore                             # Git ignore rules
 │
-├── assets/                            # Logo, GIFs, images for the README
+├── assets/                                # Logo and demo dermoscopic images
+│   ├── Dermascope-AI-Melanoma-Detection.png
+│   └── *.jpg                              # Sample test images
 │
-├── src/                               # Source code
-│   ├── __init__.py
-│   ├── config.py                      # Hyperparameters and configuration
-│   ├── preprocessing.py               # Image preprocessing pipeline
-│   ├── dataset.py                     # Dataset class and data loading
-│   ├── model.py                       # DermaScope model (EfficientNet-B4 + FiLM)
-│   ├── train.py                       # Two-phase training pipeline
-│   ├── evaluate.py                    # Evaluation and clinical metrics
-│   ├── export.py                      # ONNX model export
-│   └── utils.py                       # Utility functions
+├── src/                                   # Source code
+│   ├── __init__.py                        # Package init
+│   ├── config.py                          # Hyperparameters and paths
+│   ├── preprocessing.py                   # DullRazor + SAM + Medical Bokeh
+│   ├── dataset.py                         # Dataset class and data loading
+│   ├── model.py                           # FiLM architecture and Focal Loss
+│   ├── train.py                           # Training with differential LRs
+│   ├── evaluate.py                        # Clinical metrics and ROC analysis
+│   └── utils.py                           # Inference utilities and TTA
 │
-├── notebooks/                         # Jupyter / Colab notebooks
+├── app/                                   # Gradio demo application
+│   └── gradio_app.py                      # Interactive web interface
 │
-├── data/                              # Dataset (not tracked in git)
+├── notebooks/                             # Jupyter / Colab notebooks
+│   └── dermascope_colab_brut.ipynb        # Colab training notebook
 │
-├── models/                            # Saved model checkpoints (not tracked)
+├── data/                                  # Processed data splits
+│   ├── train_df_clean.csv                 # Training set metadata
+│   └── val_df_clean.csv                   # Validation set metadata
 │
-├── results/                           # Experimental results and figures
+├── models/                                # Saved model checkpoints
 │
-├── docs/                              # Documentation and research paper
+├── results/                               # Evaluation outputs
 │
-├── scripts/                           # Training / evaluation scripts
+├── docs/                                  # Research documentation
+│   ├── Dermascope_AI_Research_Paper_CHI_Lab_2026.md
+│   └── Dermascope_AI_Research_Paper_First_draft.pdf
 │
-└── tests/                             # Unit tests
+├── scripts/                               # Utility scripts
+│
+└── tests/                                 # Unit tests
 ```
 
 ---
 
 ## Training Strategy
 
-### Two-Phase Transfer Learning
+### End-to-End Training with Differential Learning Rates
 
-| Phase | Layers Trained | Epochs | Learning Rate | Scheduler |
-|:---|:---|:---|:---|:---|
-| **Phase 1** — Head training | Classification head only | 10 | 1×10⁻³ | CosineAnnealingWarmRestarts |
-| **Phase 2** — Fine-tuning | Last 3 backbone layers + head | 25 | 1×10⁻⁵ (backbone), 5×10⁻⁴ (head) | CosineAnnealingLR |
+Unlike standard two-phase transfer learning, Dermascope AI employs **single-phase end-to-end training** with component-specific learning rates, allowing the entire network to co-adapt from the start:
+
+| Component | Learning Rate | Rationale |
+|:---|:---|:---|
+| `model.vision` — EfficientNet-B4 backbone | 1×10⁻⁵ | Minimal perturbation of pretrained features |
+| `model.compress` — Visual compression layer | 5×10⁻⁴ | Adapt dimension reduction to domain |
+| `model.tabular` — Metadata MLP encoder | 1×10⁻³ | Learn tabular encoding from scratch |
+| `model.film` + `model.classifier` — Fusion head | 5×10⁻⁴ | Learn FiLM modulation and classification |
+
+**Optimiser:** AdamW (weight_decay=1×10⁻⁴)
+
+**Scheduler:** CosineAnnealingWarmRestarts (T₀=5, T_mult=2)
+
+**Mixed Precision:** `torch.amp.autocast` with `GradScaler`
+
+**Gradient Accumulation:** 2 steps (effective batch size = 16)
+
+**Early Stopping:** Patience = 6 epochs on validation loss
 
 ### Class Imbalance Strategy
 
-1. **Weighted Random Sampling** — Oversamples minority classes during training
-2. **Focal Loss** (γ=2.0) — Down-weights well-classified examples, focuses on hard cases
-3. **Targeted Data Augmentation** — Aggressive augmentation on malignant classes (rotations, colour jitter, elastic transforms)
-4. **Label Smoothing** (ε=0.1) — Prevents overconfident predictions
+1. **Focal Loss** (α=0.75, γ=2.0) — Up-weights the malignant minority class, down-weights well-classified benign examples
+2. **Asymmetric Data Augmentation:**
+   - Benign (moderate): Rotation 30°, Brightness ±0.3, Contrast ±0.3
+   - Malignant (aggressive): Rotation 360°, Affine translation ±10%, Scale 0.85–1.15, Brightness ±0.4, Contrast ±0.4
+3. **Optimised Decision Threshold** (0.4607) — Tuned to maximise melanoma sensitivity on the validation set
 
-### Data Augmentation (Albumentations)
+### Metadata Encoding
 
-```text
-Training:
-├── Resize(380, 380)
-├── HorizontalFlip(p=0.5)
-├── VerticalFlip(p=0.5)
-├── RandomRotate90(p=0.5)
-├── ShiftScaleRotate(shift=0.1, scale=0.15, rotate=45°, p=0.5)
-├── OneOf([ColorJitter, HueSaturationValue, RandomBrightnessContrast], p=0.5)
-├── OneOf([GaussianBlur, GaussNoise, ISONoise], p=0.3)
-├── CoarseDropout(max_holes=8, p=0.3)
-└── Normalize(ImageNet mean/std) + ToTensor
+| Feature | Encoding | Dimensions |
+|:---|:---|:---|
+| Age | Continuous, normalised by max age (85) | 1 |
+| Sex | One-hot (Female, Male, Unknown) | 3 |
+| Localisation | One-hot (15 anatomical sites) | 15 |
+| **Total** | | **19** |
 
-Validation/Test:
-├── Resize(380, 380)
-└── Normalize(ImageNet mean/std) + ToTensor
-```
+---
+
+## Inference — Test-Time Augmentation (TTA)
+
+At inference time, the model averages predictions over **5 geometric views** to improve robustness:
+
+1. Original image
+2. Horizontal flip
+3. Vertical flip
+4. 90° rotation
+5. 180° rotation
+
+All views are evaluated under `torch.amp.autocast` for efficient mixed-precision inference.
 
 ---
 
 ## Performance Targets
 
-| Metric | Minimum Target | Excellent |
-|:---|:---|:---|
-| **Balanced Accuracy** | > 0.82 | > 0.88 |
-| **Weighted ROC-AUC** | > 0.95 | > 0.98 |
-| **Melanoma Sensitivity** | > 0.90 ⚠️ | > 0.95 |
-| **Melanoma Specificity** | > 0.85 | > 0.92 |
+| Metric | Target |
+|:---|:---|
+| **Sensitivity (Recall)** — Malignant | > 0.90 ⚠️ |
+| **Specificity** — Benign | > 0.85 |
+| **Balanced Accuracy** | > 0.85 |
+| **ROC-AUC** | > 0.95 |
 
-> **Clinical priority:** Melanoma sensitivity (recall) is the most critical metric. Missing a melanoma is far more dangerous than a false alarm.
+> **Clinical priority:** Melanoma sensitivity (recall) is the most critical metric. Missing a melanoma is far more dangerous than a false alarm. The decision threshold is tuned at **0.4607** (below the standard 0.5) to favour sensitivity.
 
 ---
 
@@ -267,7 +314,7 @@ Validation/Test:
 ### Prerequisites
 
 - Python 3.9+
-- CUDA-capable GPU (recommended)
+- CUDA-capable GPU (recommended: T4 16 GB or equivalent)
 - 16 GB RAM minimum
 
 ### Installation
@@ -300,26 +347,19 @@ unzip skin-cancer-mnist-ham10000.zip -d data/HAM10000/
 ### Training
 
 ```bash
-# Phase 1: Train classification head
-python -m src.train --phase 1 --epochs 10 --lr 1e-3
-
-# Phase 2: Fine-tune backbone
-python -m src.train --phase 2 --epochs 25 --lr-backbone 1e-5 --lr-head 5e-4
-
-# Full training pipeline (both phases)
-python -m src.train --full
+python -m src.train
 ```
 
 ### Evaluation
 
 ```bash
-python -m src.evaluate --model-path models/best_model_final.pt --output-dir results/
+python -m src.evaluate --checkpoint models/best_model.pth
 ```
 
-### ONNX Export
+### Gradio Demo
 
 ```bash
-python -m src.export --model-path models/best_model_final.pt --output-path models/dermascope_ai.onnx
+python -m app.gradio_app
 ```
 
 ---
@@ -448,7 +488,7 @@ When using external datasets, models, software, code, or published methodologies
 
 ```bibtex
 @misc{dermascope_ai_chi_lab,
-  title        = {Dermascope AI: A Multimodal Deep Learning System for Early Melanoma Detection via Feature-wise Linear Modulation},
+  title        = {Dermascope AI: Multimodal Binary Classification of Skin Lesions via Feature-wise Linear Modulation},
   author       = {Computational Healthcare Intelligence Lab},
   year         = {2026},
   organization = {International Council for Research \& Innovation in STE (ICRI-STE)},
@@ -491,6 +531,13 @@ When using external datasets, models, software, code, or published methodologies
   author    = {Tan, Mingxing and Le, Quoc V},
   journal   = {International Conference on Machine Learning (ICML)},
   year      = {2019}
+}
+
+@article{kirillov2023sam,
+  title     = {Segment Anything},
+  author    = {Kirillov, Alexander and Mintun, Eric and Ravi, Nikhila and others},
+  journal   = {ICCV},
+  year      = {2023}
 }
 ```
 
