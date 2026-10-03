@@ -8,7 +8,7 @@
 
 ---
 
-# Dermascope AI: Multimodal Binary Classification of Skin Lesions via Feature-wise Linear Modulation
+# Dermascope AI: A Multimodal Deep Learning System for Early Melanoma Detection via Feature-wise Linear Modulation
 
 > **CHI Lab ECR Research Project — Computational Dermatology & Medical Imaging AI**
 
@@ -488,7 +488,7 @@ When using external datasets, models, software, code, or published methodologies
 
 ```bibtex
 @misc{dermascope_ai_chi_lab,
-  title        = {Dermascope AI: Multimodal Binary Classification of Skin Lesions via Feature-wise Linear Modulation},
+  title        = {Dermascope AI: A Multimodal Deep Learning System for Early Melanoma Detection via Feature-wise Linear Modulation},
   author       = {Computational Healthcare Intelligence Lab},
   year         = {2026},
   organization = {International Council for Research \& Innovation in STE (ICRI-STE)},
