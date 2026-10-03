@@ -1,186 +1,206 @@
 """
-Training pipeline for Dermascope AI with two-phase training and mixed precision.
+============================================================
+DermaScope AI — Entraînement
+============================================================
+Auteur  : Bilel Kahma
+Projet  : Détection de Pathologies Cutanées par Deep Learning
+============================================================
+Pipeline complète d'entraînement avec mixed precision, learning rates
+différentiels, Focal Loss, et checkpoints.
 """
-import argparse
+
 import os
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.cuda.amp import GradScaler, autocast
-from torch.utils.data import DataLoader
-from sklearn.metrics import balanced_accuracy_score, roc_auc_score
-from tqdm import tqdm
 import pandas as pd
+import torch
+from torch import optim
+from tqdm import tqdm
+from pathlib import Path
+from typing import Tuple
 
-from .model import DermaScope
-from .dataset import SkinLesionDataset, get_transforms, get_patient_split, get_weighted_sampler
-from .utils import set_seed, setup_logger, EarlyStopping
-from .config import DATA_DIR, MODEL_DIR, NUM_CLASSES, BATCH_SIZE, NUM_WORKERS, METADATA_DIM
+from src import config
+from src.dataset import encoder_rapide, create_dataloaders
+from src.model import create_model, DermascopeFocalLoss
 
-class FocalLoss(nn.Module):
+__all__ = ['prepare_data', 'train_one_epoch', 'validate', 'train']
+
+def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, int]:
     """
-    Focal Loss for imbalanced datasets.
+    Prépare et encode les données d'entraînement et de validation.
+    
+    Returns:
+        Tuple: (train_df, val_df, nombre de features tabulaires).
     """
-    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
-        super(FocalLoss, self).__init__()
-        self.gamma = gamma
-        self.reduction = reduction
-        self.alpha = alpha # Can be class weights
-        self.ce = nn.CrossEntropyLoss(weight=alpha, reduction='none', label_smoothing=0.1)
+    train_df = pd.read_csv(config.TRAIN_CSV)
+    val_df = pd.read_csv(config.VAL_CSV)
+    
+    # Remplacer les valeurs manquantes (nettoyage basique si pas déjà fait)
+    age_median = train_df['age'].median()
+    train_df['age'] = train_df['age'].fillna(age_median)
+    val_df['age'] = val_df['age'].fillna(age_median)
+    
+    train_df['sex'] = train_df['sex'].fillna('unknown')
+    val_df['sex'] = val_df['sex'].fillna('unknown')
+    train_df['localization'] = train_df['localization'].fillna('unknown')
+    val_df['localization'] = val_df['localization'].fillna('unknown')
+    
+    # Normalisation de l'âge
+    train_df['age_norm'] = train_df['age'] / 100.0
+    val_df['age_norm'] = val_df['age'] / 100.0
+    
+    # Détermination des catégories
+    sex_cats = list(set(train_df['sex'].unique()).union(val_df['sex'].unique()))
+    loc_cats = list(set(train_df['localization'].unique()).union(val_df['localization'].unique()))
+    
+    # Encodage
+    train_meta = encoder_rapide(train_df, sex_cats, loc_cats)
+    val_meta = encoder_rapide(val_df, sex_cats, loc_cats)
+    
+    num_features = train_meta.shape[1]
+    
+    # Attach encodings to dataframes for dataloader simplicity
+    train_df['meta_arr'] = list(train_meta)
+    val_df['meta_arr'] = list(val_meta)
+    
+    return train_df, val_df, train_meta, val_meta, num_features
 
-    def forward(self, inputs, targets):
-        ce_loss = self.ce(inputs, targets)
-        pt = torch.exp(-ce_loss)
-        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
-        
-        if self.reduction == 'mean':
-            return focal_loss.mean()
-        return focal_loss.sum()
 
-def train_epoch(model, dataloader, criterion, optimizer, scaler, device):
+def train_one_epoch(model: torch.nn.Module, loader: torch.utils.data.DataLoader, 
+                    criterion: torch.nn.Module, optimizer: torch.optim.Optimizer, 
+                    scaler: torch.amp.GradScaler, device: torch.device, 
+                    accumulation_steps: int) -> float:
+    """
+    Entraîne le modèle sur une époque entière.
+    """
     model.train()
     running_loss = 0.0
-    all_preds = []
-    all_targets = []
+    optimizer.zero_grad()
     
-    pbar = tqdm(dataloader, desc='Training')
-    for images, metadata, targets in pbar:
-        images, metadata, targets = images.to(device), metadata.to(device), targets.to(device)
+    pbar = tqdm(enumerate(loader), total=len(loader), desc="🔄 Entraînement")
+    for i, (images, meta, labels) in pbar:
+        images, meta, labels = images.to(device), meta.to(device), labels.to(device)
         
-        optimizer.zero_grad()
-        
-        # Mixed precision
-        with autocast():
-            outputs = model(images, metadata)
-            loss = criterion(outputs, targets)
+        # Mixed Precision
+        with torch.amp.autocast(device_type=device.type if device.type == 'cuda' else 'cpu'):
+            logits = model(images, meta)
+            loss = criterion(logits, labels)
+            loss = loss / accumulation_steps
             
+        # Backward
         scaler.scale(loss).backward()
         
-        # Gradient clipping
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        if (i + 1) % accumulation_steps == 0:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
+            
+        running_loss += loss.item() * accumulation_steps
+        pbar.set_postfix({'loss': loss.item() * accumulation_steps})
         
-        scaler.step(optimizer)
-        scaler.update()
-        
-        running_loss += loss.item()
-        preds = torch.argmax(outputs, dim=1)
-        
-        all_preds.extend(preds.cpu().numpy())
-        all_targets.extend(targets.cpu().numpy())
-        
-        pbar.set_postfix({'loss': loss.item()})
-        
-    epoch_loss = running_loss / len(dataloader)
-    bal_acc = balanced_accuracy_score(all_targets, all_preds)
-    return epoch_loss, bal_acc
+    return running_loss / len(loader)
 
-def validate_epoch(model, dataloader, criterion, device):
+
+def validate(model: torch.nn.Module, loader: torch.utils.data.DataLoader, 
+             criterion: torch.nn.Module, device: torch.device) -> Tuple[float, float]:
+    """
+    Évalue le modèle sur le jeu de validation.
+    """
     model.eval()
     running_loss = 0.0
-    all_preds = []
-    all_probs = []
-    all_targets = []
+    correct = 0
+    total = 0
     
     with torch.no_grad():
-        for images, metadata, targets in tqdm(dataloader, desc='Validation'):
-            images, metadata, targets = images.to(device), metadata.to(device), targets.to(device)
+        for images, meta, labels in tqdm(loader, desc="🔬 Validation"):
+            images, meta, labels = images.to(device), meta.to(device), labels.to(device)
             
-            outputs = model(images, metadata)
-            loss = criterion(outputs, targets)
-            
+            with torch.amp.autocast(device_type=device.type if device.type == 'cuda' else 'cpu'):
+                logits = model(images, meta)
+                loss = criterion(logits, labels)
+                
             running_loss += loss.item()
-            probs = torch.softmax(outputs, dim=1)
-            preds = torch.argmax(probs, dim=1)
+            probs = torch.sigmoid(logits)
+            preds = (probs > 0.5).float()
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
             
-            all_probs.extend(probs.cpu().numpy())
-            all_preds.extend(preds.cpu().numpy())
-            all_targets.extend(targets.cpu().numpy())
-            
-    epoch_loss = running_loss / len(dataloader)
-    bal_acc = balanced_accuracy_score(all_targets, all_preds)
-    
-    # Calculate ROC-AUC if possible
-    try:
-        roc_auc = roc_auc_score(all_targets, all_probs, multi_class='ovr', average='weighted')
-    except ValueError:
-        roc_auc = 0.0
-        
-    return epoch_loss, bal_acc, roc_auc
+    val_loss = running_loss / len(loader)
+    val_acc = correct / total
+    return val_loss, val_acc
 
-def main(args):
-    set_seed(args.seed)
-    os.makedirs(MODEL_DIR, exist_ok=True)
-    logger = setup_logger('train', os.path.join(MODEL_DIR, 'train.log'))
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logger.info(f"Using device: {device}")
+
+def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, 
+          val_loader: torch.utils.data.DataLoader, device: torch.device, 
+          epochs: int, patience: int, accumulation_steps: int, checkpoint_dir: Path) -> None:
+    """
+    Boucle complète d'entraînement avec early stopping et scheduling.
+    """
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
-    # Load data
-    df = pd.read_csv(os.path.join(DATA_DIR, 'HAM10000_metadata.csv'))
-    train_df, val_df = get_patient_split(df)
-    logger.info(f"Train size: {len(train_df)}, Val size: {len(val_df)}")
-    
-    image_dir = os.path.join(DATA_DIR, 'HAM10000_images')
-    train_dataset = SkinLesionDataset(train_df, image_dir, transforms=get_transforms('train'), apply_hair_removal=True)
-    val_dataset = SkinLesionDataset(val_df, image_dir, transforms=get_transforms('val'), apply_hair_removal=False)
-    
-    # Handling class imbalance
-    sampler = get_weighted_sampler(train_df)
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, sampler=sampler, num_workers=NUM_WORKERS)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
-    
-    # Model
-    model = DermaScope(num_classes=NUM_CLASSES, metadata_dim=METADATA_DIM).to(device)
-    
-    # Calculate class weights for Focal Loss
-    class_counts = train_df['dx'].value_counts().sort_index().values
-    weights = 1.0 / torch.tensor(class_counts, dtype=torch.float32)
-    weights = weights / weights.sum() * NUM_CLASSES
-    criterion = FocalLoss(alpha=weights.to(device), gamma=2.0)
-    
-    scaler = GradScaler()
-    early_stopping = EarlyStopping(patience=7, path=os.path.join(MODEL_DIR, 'best_model.pt'))
-    
-    # Phase 1: Train Head Only
-    logger.info("Starting Phase 1: Training Head Only")
-    model.freeze_backbone()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5)
-    
-    for epoch in range(10):
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, scaler, device)
-        val_loss, val_acc, val_auc = validate_epoch(model, val_loader, criterion, device)
-        scheduler.step()
-        logger.info(f"Epoch {epoch+1}/10 - Train Loss: {train_loss:.4f}, Acc: {train_acc:.4f} | Val Loss: {val_loss:.4f}, Acc: {val_acc:.4f}, AUC: {val_auc:.4f}")
-        early_stopping(val_loss, model)
-        
-    # Phase 2: Fine-tuning
-    logger.info("Starting Phase 2: Fine-tuning last 3 layers")
-    model.load_state_dict(torch.load(os.path.join(MODEL_DIR, 'best_model.pt')))
-    model.unfreeze_backbone(num_layers=3)
-    
-    # Different learning rates for backbone and head
+    # Differential Learning Rates
     param_groups = [
-        {'params': model.backbone.parameters(), 'lr': 1e-5},
-        {'params': model.film.parameters(), 'lr': 5e-4},
-        {'params': model.head.parameters(), 'lr': 5e-4}
+        {'params': model.backbone.parameters(), 'lr': config.LR_BACKBONE},
+        {'params': model.vision_compress.parameters(), 'lr': config.LR_COMPRESS},
+        {'params': model.tabular_branch.parameters(), 'lr': config.LR_TABULAR},
+        {'params': model.fusion_head.parameters(), 'lr': config.LR_FUSION}
     ]
-    optimizer = optim.AdamW(param_groups)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=25)
-    early_stopping = EarlyStopping(patience=7, path=os.path.join(MODEL_DIR, 'best_model_finetuned.pt'))
     
-    for epoch in range(25):
-        train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer, scaler, device)
-        val_loss, val_acc, val_auc = validate_epoch(model, val_loader, criterion, device)
+    optimizer = optim.AdamW(param_groups, weight_decay=config.WEIGHT_DECAY)
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, T_0=config.SCHEDULER_T0, T_mult=config.SCHEDULER_TMULT
+    )
+    
+    criterion = DermascopeFocalLoss()
+    scaler = torch.amp.GradScaler(device.type) if device.type == 'cuda' else torch.amp.GradScaler('cpu')
+    
+    best_val_loss = float('inf')
+    epochs_no_improve = 0
+    
+    print("🚀 Début de l'entraînement DermaScope AI")
+    
+    for epoch in range(1, epochs + 1):
+        print(f"\n📅 Époque {epoch}/{epochs}")
+        
+        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, scaler, device, accumulation_steps)
+        val_loss, val_acc = validate(model, val_loader, criterion, device)
+        
         scheduler.step()
-        logger.info(f"Epoch {epoch+1}/25 - Train Loss: {train_loss:.4f}, Acc: {train_acc:.4f} | Val Loss: {val_loss:.4f}, Acc: {val_acc:.4f}, AUC: {val_auc:.4f}")
-        early_stopping(val_loss, model)
-        if early_stopping.early_stop:
-            logger.info("Early stopping triggered in Phase 2")
+        
+        print(f"📉 Train Loss: {train_loss:.4f} | 📈 Val Loss: {val_loss:.4f} | 🎯 Val Acc: {val_acc*100:.2f}%")
+        
+        # Checkpoint Last
+        torch.save(model.state_dict(), checkpoint_dir / 'last_model.pth')
+        
+        # Early Stopping & Best Checkpoint
+        if val_loss < best_val_loss:
+            print("🌟 Nouveau meilleur modèle trouvé ! Sauvegarde...")
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), checkpoint_dir / 'best_model.pth')
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+            print(f"⚠️ Pas d'amélioration. Patience: {epochs_no_improve}/{patience}")
+            
+        if epochs_no_improve >= patience:
+            print("🛑 Early Stopping déclenché. Arrêt de l'entraînement.")
             break
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train DermaScope Model')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed')
-    args = parser.parse_args()
-    main(args)
+    # Initialisation
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    train_df, val_df, train_meta, val_meta, num_features = prepare_data()
+    train_loader, val_loader = create_dataloaders(train_df, val_df, train_meta, val_meta, config.BATCH_SIZE)
+    
+    model = create_model(num_features, device)
+    
+    train(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        device=device,
+        epochs=config.EPOCHS,
+        patience=config.PATIENCE,
+        accumulation_steps=config.ACCUMULATION_STEPS,
+        checkpoint_dir=config.MODELS_DIR
+    )

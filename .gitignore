@@ -22,25 +22,23 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Data
+# Data — raw images only (CSVs are tracked)
 data/HAM10000_images/
 data/HAM10000/
-*.csv
-!data/*example*.csv
 data/*.jpg
 data/*.jpeg
 data/*.png
-!results/*.png
-!assets/*.png
-!assets/*.jpg
 
-# Models
+# Models & Weights
 *.pt
 *.pth
 *.onnx
-models/*.pt
-models/*.pth
-models/*.onnx
+weights/
+
+# Temp files
+temp_uploaded.*
+apptest_tmp.py
+check_weights.py
 
 # IDE
 .vscode/
@@ -63,3 +61,6 @@ Thumbs.db
 
 # Jupyter
 .ipynb_checkpoints
+
+# Streamlit (will be added later)
+app.py

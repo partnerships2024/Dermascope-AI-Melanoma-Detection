@@ -1,90 +1,97 @@
 """
-Utility functions for setting seeds, logging, metrics, and early stopping.
+Dermascope AI — Utility Functions
+Metadata encoding and Test-Time Augmentation.
 """
-import os
-import random
-import numpy as np
+
 import torch
-import logging
-from typing import Dict, Any
+import torch.nn.functional as F
+import numpy as np
+import cv2
+import torchvision.transforms as T
 
-def set_seed(seed: int = 42) -> None:
+# Categories fitted on training set (deterministic order)
+SEX_CATS = ['Female', 'Male', 'unknown']
+LOC_CATS = [
+    'abdomen', 'acral', 'back', 'chest', 'ear', 'face', 'foot',
+    'genital', 'hand', 'lower extremity', 'neck', 'scalp',
+    'trunk', 'unknown', 'upper extremity'
+]
+
+MAX_AGE = 85.0
+NUM_TABULAR_FEATURES = 1 + len(SEX_CATS) + len(LOC_CATS)  # 18
+
+# Standard ImageNet normalization
+VAL_TRANSFORM_512 = T.Compose([
+    T.ToPILImage(),
+    T.ToTensor(),
+    T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
+
+OPTIMAL_THRESHOLD = 0.4607
+
+
+def encode_metadata(age: float, sex: str, loc: str) -> np.ndarray:
     """
-    Set seeds for reproducibility.
-    
+    Encode a single patient's clinical metadata into a feature vector.
+
     Args:
-        seed (int): Seed value to use.
-    """
-    random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+        age: Patient age in years (0–100).
+        sex: One of 'Female', 'Male', 'unknown'.
+        loc: Body localization string.
 
-def setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logger:
+    Returns:
+        np.ndarray of shape (1, NUM_TABULAR_FEATURES), dtype float32.
     """
-    Set up a logger to log to console and file.
+    age_norm = min(age / MAX_AGE, 1.0)
+    sex_arr = [1.0 if sex.lower() == c.lower() else 0.0 for c in SEX_CATS]
+    loc_arr = [1.0 if loc.lower() == c.lower() else 0.0 for c in LOC_CATS]
+    return np.array([[age_norm] + sex_arr + loc_arr], dtype=np.float32)
+
+
+def predict_tta(model, image_tensor, meta_tensor):
     """
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    handler = logging.FileHandler(log_file)
-    handler.setFormatter(formatter)
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    if not logger.handlers:
-        logger.addHandler(handler)
-        logger.addHandler(console_handler)
-    
-    return logger
-
-class EarlyStopping:
+    Test-Time Augmentation: averages predictions over 5 geometric views.
     """
-    Early stops the training if validation loss doesn't improve after a given patience.
+    augmentations = [
+        lambda x: x,
+        lambda x: torch.flip(x, dims=[3]),
+        lambda x: torch.flip(x, dims=[2]),
+        lambda x: torch.rot90(x, k=1, dims=[2, 3]),
+        lambda x: torch.rot90(x, k=2, dims=[2, 3]),
+    ]
+    preds = []
+    for aug_fn in augmentations:
+        with torch.amp.autocast('cuda'):
+            preds.append(torch.sigmoid(model(aug_fn(image_tensor), meta_tensor)))
+    return torch.stack(preds).mean(dim=0)
+
+
+def dullrazor_hair_removal(img_rgb):
     """
-    def __init__(self, patience: int = 7, verbose: bool = False, delta: float = 0.0, path: str = 'checkpoint.pt'):
-        """
-        Args:
-            patience (int): How long to wait after last time validation loss improved.
-            verbose (bool): If True, prints a message for each validation loss improvement.
-            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-            path (str): Path for the checkpoint to be saved to.
-        """
-        self.patience = patience
-        self.verbose = verbose
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.Inf
-        self.delta = delta
-        self.path = path
+    DullRazor algorithm for hair artifact removal in dermoscopic images.
+    Uses morphological blackhat filtering to detect dark hair strands,
+    then inpaints them to restore underlying skin texture.
 
-    def __call__(self, val_loss: float, model: torch.nn.Module) -> None:
-        score = -val_loss
+    Args:
+        img_rgb: numpy array (H, W, 3) in RGB format.
 
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model)
-        elif score < self.best_score + self.delta:
-            self.counter += 1
-            if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model)
-            self.counter = 0
+    Returns:
+        numpy array (H, W, 3) in RGB, hair removed.
+    """
+    gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
 
-    def save_checkpoint(self, val_loss: float, model: torch.nn.Module) -> None:
-        """Saves model when validation loss decrease."""
-        if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}). Saving model...')
-        torch.save(model.state_dict(), self.path)
-        self.val_loss_min = val_loss
+    # Blackhat filter with elongated kernels to detect thin dark hair strands
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    blackhat = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel)
+
+    # Threshold to create a binary hair mask
+    _, hair_mask = cv2.threshold(blackhat, 10, 255, cv2.THRESH_BINARY)
+
+    # Clean up the mask with dilation to cover hair width
+    hair_mask = cv2.dilate(hair_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)), iterations=1)
+
+    # Inpaint the detected hair regions
+    result = cv2.inpaint(img_rgb, hair_mask, inpaintRadius=6, flags=cv2.INPAINT_TELEA)
+
+    return result
+

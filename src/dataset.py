@@ -1,120 +1,179 @@
 """
-Dataset implementation for the HAM10000 skin lesion dataset.
+============================================================
+DermaScope AI — Chargement des Données
+============================================================
+Auteur  : Bilel Kahma
+Projet  : Détection de Pathologies Cutanées par Deep Learning
+============================================================
+Modules de chargement, encodage et augmentation des données.
 """
-import os
+
 import cv2
-import pandas as pd
 import numpy as np
+import pandas as pd
 import torch
-from torch.utils.data import Dataset, WeightedRandomSampler
-from typing import Tuple, List, Optional
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
-from sklearn.model_selection import GroupShuffleSplit
-from .preprocessing import dull_razor
+from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
+from typing import Tuple, List, Callable, Optional
 
-from .config import CLASS_NAMES, CLASS_TO_IDX, IMAGENET_MEAN, IMAGENET_STD, IMG_SIZE
+from src import config
 
-class SkinLesionDataset(Dataset):
+__all__ = ['encoder_rapide', 'DermascopeMultimodalDataset', 'get_transforms', 'create_dataloaders']
+
+def encoder_rapide(df: pd.DataFrame, sex_cats: List[str], loc_cats: List[str]) -> np.ndarray:
     """
-    PyTorch Dataset for HAM10000 with image and metadata loading.
+    Encode rapidement les métadonnées cliniques sous forme de vecteurs continus/one-hot.
+    
+    Rationnel: Les métadonnées sont cruciales pour le diagnostic. L'âge est normalisé,
+    le sexe et la localisation sont encodés en One-Hot.
+    
+    Args:
+        df (pd.DataFrame): DataFrame contenant 'age_norm', 'sex', 'localization'.
+        sex_cats (List[str]): Liste des catégories de sexes.
+        loc_cats (List[str]): Liste des catégories de localisations.
+        
+    Returns:
+        np.ndarray: Matrice NumPy des caractéristiques (N, num_features).
     """
-    def __init__(self, df: pd.DataFrame, image_dir: str, transforms: Optional[A.Compose] = None, apply_hair_removal: bool = False):
-        self.df = df
-        self.image_dir = image_dir
-        self.transforms = transforms
-        self.apply_hair_removal = apply_hair_removal
-        
-        # Preprocess metadata
-        self.metadata = self._preprocess_metadata(df)
-        
-    def _preprocess_metadata(self, df: pd.DataFrame) -> np.ndarray:
+    age_feature = df['age_norm'].values.reshape(-1, 1)
+    
+    # Encodage One-hot optimisé
+    sex_dummies = pd.get_dummies(pd.Categorical(df['sex'], categories=sex_cats))
+    loc_dummies = pd.get_dummies(pd.Categorical(df['localization'], categories=loc_cats))
+    
+    meta_matrix = np.hstack([age_feature, sex_dummies.values, loc_dummies.values]).astype(np.float32)
+    return meta_matrix
+
+
+class DermascopeMultimodalDataset(Dataset):
+    """
+    Dataset PyTorch pour la fusion multimodale (Images + Données cliniques tabulaires).
+    
+    Rationnel: Applique une data augmentation agressive sélectivement sur la classe
+    maligne pour balancer les échantillons au niveau visuel.
+    """
+    def __init__(self, df: pd.DataFrame, metadata_matrix: np.ndarray, transform: Optional[Callable] = None, transform_malin: Optional[Callable] = None):
         """
-        Preprocesses metadata: age imputation and one-hot encoding.
+        Initialisation du Dataset.
+        
+        Args:
+            df (pd.DataFrame): DataFrame contenant 'path' et 'target'.
+            metadata_matrix (np.ndarray): Matrice des métadonnées (encodées).
+            transform (Callable, optional): Transformations standard.
+            transform_malin (Callable, optional): Transformations agressives pour classe positive.
         """
-        # Age imputation with median
-        median_age = df['age'].median()
-        age = df['age'].fillna(median_age).values / 100.0  # Scale age
-        
-        # One-hot encoding for sex and localization
-        # Assuming typical unique values from HAM10000
-        sex_dummies = pd.get_dummies(df['sex'], dummy_na=True)
-        loc_dummies = pd.get_dummies(df['localization'], dummy_na=True)
-        
-        # Combine metadata
-        metadata = np.column_stack((age, sex_dummies.values, loc_dummies.values))
-        return metadata.astype(np.float32)
+        self.paths = df['path'].values
+        self.labels = df['target'].values
+        self.metadata = metadata_matrix
+        self.transform = transform
+        self.transform_malin = transform_malin
 
     def __len__(self) -> int:
-        return len(self.df)
+        return len(self.paths)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int]:
-        row = self.df.iloc[idx]
-        img_id = row['image_id']
-        label_str = row['dx']
-        label = CLASS_TO_IDX.get(label_str, 0)
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Récupère l'image et ses métadonnées.
+        """
+        img_path = str(self.paths[idx])
+        label = self.labels[idx]
         
-        img_path = os.path.join(self.image_dir, f"{img_id}.jpg")
+        # Chargement image
         image = cv2.imread(img_path)
         if image is None:
-            # Fallback for missing images
-            image = np.zeros((IMG_SIZE, IMG_SIZE, 3), dtype=np.uint8)
+            # Sécurité si chemin invalide (génère une image noire)
+            image = np.zeros((config.IMAGE_SIZE, config.IMAGE_SIZE, 3), dtype=np.uint8)
         else:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            
-        if self.apply_hair_removal:
-            image = dull_razor(image)
-            
-        if self.transforms:
-            augmented = self.transforms(image=image)
-            image = augmented['image']
-            
-        meta = torch.tensor(self.metadata[idx], dtype=torch.float32)
+            image = cv2.resize(image, (config.IMAGE_SIZE, config.IMAGE_SIZE))
         
-        return image, meta, label
+        from PIL import Image
+        image_pil = Image.fromarray(image)
+        
+        # Augmentation sélective
+        if label == 1 and self.transform_malin is not None:
+            image_tensor = self.transform_malin(image_pil)
+        elif self.transform is not None:
+            image_tensor = self.transform(image_pil)
+        else:
+            image_tensor = transforms.ToTensor()(image_pil)
+            
+        meta_tensor = torch.tensor(self.metadata[idx], dtype=torch.float32)
+        label_tensor = torch.tensor([label], dtype=torch.float32)
+        
+        return image_tensor, meta_tensor, label_tensor
 
-def get_transforms(phase: str) -> A.Compose:
-    """Returns Albumentations transforms for train/val phases."""
-    if phase == 'train':
-        return A.Compose([
-            A.Resize(IMG_SIZE, IMG_SIZE),
-            A.RandomRotate90(),
-            A.Flip(),
-            A.Transpose(),
-            A.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.1, rotate_limit=45, p=0.5),
-            A.OneOf([
-                A.OpticalDistortion(p=0.3),
-                A.GridDistortion(p=0.1),
-            ], p=0.2),
-            A.HueSaturationValue(hue_shift_limit=20, sat_shift_limit=30, val_shift_limit=20, p=0.5),
-            A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-            ToTensorV2()
-        ])
-    else:
-        return A.Compose([
-            A.Resize(IMG_SIZE, IMG_SIZE),
-            A.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
-            ToTensorV2()
-        ])
 
-def get_patient_split(df: pd.DataFrame, test_size: float = 0.2, seed: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_transforms() -> Tuple[transforms.Compose, transforms.Compose, transforms.Compose]:
     """
-    Patient-level stratified split to prevent data leakage.
-    Uses 'lesion_id' to group images from the same patient.
+    Renvoie les pipelines de transformations (Standard, Malin, Val).
+    
+    Rationnel: Les lésions bénignes reçoivent une augmentation légère, tandis que
+    les lésions malignes (minoritaires) subissent des transformations importantes.
+    
+    Returns:
+        Tuple: (train_transforms, train_transforms_malin, val_transforms).
     """
-    gss = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=seed)
-    train_idx, val_idx = next(gss.split(df, df['dx'], groups=df['lesion_id']))
-    return df.iloc[train_idx].reset_index(drop=True), df.iloc[val_idx].reset_index(drop=True)
+    train_transforms = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(config.AUG_ROTATION_BENIN),
+        transforms.ColorJitter(brightness=config.AUG_BRIGHTNESS_BENIN, contrast=config.AUG_CONTRAST_BENIN),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=config.IMAGENET_MEAN, std=config.IMAGENET_STD)
+    ])
+    
+    train_transforms_malin = transforms.Compose([
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomRotation(config.AUG_ROTATION_MALIN),
+        transforms.RandomAffine(degrees=0, translate=config.AUG_TRANSLATE_MALIN, scale=config.AUG_SCALE_MALIN),
+        transforms.ColorJitter(brightness=config.AUG_BRIGHTNESS_MALIN, contrast=config.AUG_CONTRAST_MALIN),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=config.IMAGENET_MEAN, std=config.IMAGENET_STD)
+    ])
+    
+    val_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=config.IMAGENET_MEAN, std=config.IMAGENET_STD)
+    ])
+    
+    return train_transforms, train_transforms_malin, val_transforms
 
-def get_weighted_sampler(df: pd.DataFrame) -> WeightedRandomSampler:
+
+def create_dataloaders(train_df: pd.DataFrame, val_df: pd.DataFrame, train_meta: np.ndarray, val_meta: np.ndarray, batch_size: int = config.BATCH_SIZE) -> Tuple[DataLoader, DataLoader]:
     """
-    Creates a WeightedRandomSampler to handle class imbalance.
+    Crée les DataLoaders PyTorch pour l'entraînement et la validation.
+    
+    Args:
+        train_df (pd.DataFrame): DataFrame d'entraînement.
+        val_df (pd.DataFrame): DataFrame de validation.
+        train_meta (np.ndarray): Matrice des métadonnées d'entraînement.
+        val_meta (np.ndarray): Matrice des métadonnées de validation.
+        batch_size (int): Taille de lot.
+        
+    Returns:
+        Tuple[DataLoader, DataLoader]: (train_loader, val_loader).
     """
-    class_counts = df['dx'].value_counts()
-    class_weights = 1.0 / class_counts
-    sample_weights = df['dx'].map(class_weights).values
-    return WeightedRandomSampler(
-        weights=torch.DoubleTensor(sample_weights),
-        num_samples=len(sample_weights),
-        replacement=True
+    trans_std, trans_malin, trans_val = get_transforms()
+    
+    train_dataset = DermascopeMultimodalDataset(train_df, train_meta, transform=trans_std, transform_malin=trans_malin)
+    val_dataset = DermascopeMultimodalDataset(val_df, val_meta, transform=trans_val, transform_malin=None)
+    
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=batch_size, 
+        shuffle=True, 
+        num_workers=config.NUM_WORKERS, 
+        pin_memory=config.PIN_MEMORY
     )
+    
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=batch_size, 
+        shuffle=False, 
+        num_workers=config.NUM_WORKERS, 
+        pin_memory=config.PIN_MEMORY
+    )
+    
+    return train_loader, val_loader

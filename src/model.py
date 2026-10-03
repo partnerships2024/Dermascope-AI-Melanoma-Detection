@@ -1,118 +1,138 @@
 """
-DermaScope Model Architecture with EfficientNet-B4 backbone and FiLM metadata fusion.
+============================================================
+DermaScope AI — Modèles Multimodaux FiLM
+============================================================
+Architecture avancée utilisant la Feature-wise Linear Modulation (FiLM)
+pour conditionner l'extraction de caractéristiques visuelles par les
+métadonnées cliniques.
 """
+
 import torch
 import torch.nn as nn
-import torchvision.models as models
+import torch.nn.functional as F
+from torchvision.models import (
+    efficientnet_b4, EfficientNet_B4_Weights,
+    resnet50, ResNet50_Weights,
+    densenet121, DenseNet121_Weights
+)
 
-class FiLMLayer(nn.Module):
+__all__ = ['FiLM_Layer', 'Dermascope_FiLM_EfficientNet', 'Dermascope_FiLM_Alternative', 'DermascopeFocalLoss']
+
+class FiLM_Layer(nn.Module):
     """
-    Feature-wise Linear Modulation (FiLM) layer.
-    Modulates visual features based on metadata.
+    Couche de Feature-wise Linear Modulation.
+    Les métadonnées génèrent les paramètres Gamma et Beta qui vont
+    multiplier et additionner les features visuelles.
     """
-    def __init__(self, metadata_dim: int, feature_dim: int):
-        super(FiLMLayer, self).__init__()
-        # Small MLP to encode metadata into gamma and beta vectors
-        self.mlp = nn.Sequential(
-            nn.Linear(metadata_dim, 128),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(128, feature_dim * 2) # Output gamma and beta
+    def __init__(self, tabular_dim: int, vision_dim: int):
+        super().__init__()
+        self.gamma = nn.Linear(tabular_dim, vision_dim)
+        self.beta = nn.Linear(tabular_dim, vision_dim)
+        
+    def forward(self, v: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+        # Modulation affine : Vision * (1 + Gamma(Tabular)) + Beta(Tabular)
+        return v * (1.0 + self.gamma(t)) + self.beta(t)
+
+
+class Dermascope_FiLM_EfficientNet(nn.Module):
+    def __init__(self, num_tabular_features: int):
+        super().__init__()
+        self.vision = efficientnet_b4(weights=EfficientNet_B4_Weights.DEFAULT)
+        num_v = self.vision.classifier[1].in_features
+        self.vision.classifier = nn.Identity()
+        
+        self.compress = nn.Sequential(
+            nn.Linear(num_v, 512), 
+            nn.BatchNorm1d(512), 
+            nn.SiLU()
         )
         
-    def forward(self, features: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
-        film_params = self.mlp(metadata)
-        gamma, beta = film_params.chunk(2, dim=-1)
-        
-        # Broadcast gamma and beta across spatial dimensions if features are 4D (N, C, H, W)
-        if features.dim() == 4:
-            gamma = gamma.unsqueeze(2).unsqueeze(3)
-            beta = beta.unsqueeze(2).unsqueeze(3)
-            
-        # Modulate: output = gamma * features + beta
-        return features * gamma + beta
-
-class DermaScope(nn.Module):
-    """
-    Multimodal deep learning system for early melanoma detection.
-    Uses EfficientNet-B4 backbone and FiLM for metadata fusion.
-    """
-    def __init__(self, num_classes: int = 7, metadata_dim: int = 18, backbone_name: str = 'efficientnet_b4'):
-        super(DermaScope, self).__init__()
-        
-        # Backbone (EfficientNet-B4 by default)
-        if backbone_name == 'efficientnet_b4':
-            self.backbone = models.efficientnet_b4(weights=models.EfficientNet_B4_Weights.IMAGENET1K_V1)
-            feature_dim = 1792
-        else:
-            self.backbone = models.efficientnet_b3(weights=models.EfficientNet_B3_Weights.IMAGENET1K_V1)
-            feature_dim = 1536
-            
-        # Remove original classifier
-        self.backbone.classifier = nn.Identity()
-        
-        # Global Average Pooling
-        self.gap = nn.AdaptiveAvgPool2d(1)
-        
-        # FiLM Layer for metadata conditioning
-        self.film = FiLMLayer(metadata_dim=metadata_dim, feature_dim=feature_dim)
-        
-        # Custom classification head with MC Dropout for uncertainty
-        self.head = nn.Sequential(
-            nn.Dropout(0.4),
-            nn.Linear(feature_dim, 512),
-            nn.ReLU(),
-            nn.BatchNorm1d(512),
-            nn.Dropout(0.3),
-            nn.Linear(512, num_classes)
+        self.tabular = nn.Sequential(
+            nn.Linear(num_tabular_features, 64), 
+            nn.BatchNorm1d(64), 
+            nn.SiLU(), 
+            nn.Dropout(0.2), 
+            nn.Linear(64, 32), 
+            nn.BatchNorm1d(32), 
+            nn.SiLU()
         )
         
-    def forward(self, image: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
-        # Extract visual features (N, C, H, W)
-        features = self.backbone.features(image)
+        self.film = FiLM_Layer(tabular_dim=32, vision_dim=512)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 256), 
+            nn.BatchNorm1d(256), 
+            nn.SiLU(), 
+            nn.Dropout(0.4), 
+            nn.Linear(256, 1)
+        )
         
-        # Apply GAP -> (N, C, 1, 1) -> (N, C)
-        features = self.gap(features).flatten(1)
-        
-        # Modulate features with metadata using FiLM
-        fused_features = self.film(features, metadata)
-        
-        # Classification
-        out = self.head(fused_features)
-        return out
-        
-    def freeze_backbone(self):
-        """Freezes the EfficientNet backbone."""
-        for param in self.backbone.parameters():
-            param.requires_grad = False
-            
-    def unfreeze_backbone(self, num_layers: int = None):
-        """
-        Unfreezes the backbone. If num_layers is specified, only unfreezes the last N layers.
-        """
-        if num_layers is None:
-            for param in self.backbone.parameters():
-                param.requires_grad = True
-        else:
-            # Unfreeze only the last num_layers
-            layers = list(self.backbone.features.children())
-            for layer in layers[-num_layers:]:
-                for param in layer.parameters():
-                    param.requires_grad = True
+    def forward(self, images: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
+        v = self.compress(self.vision(images))
+        t = self.tabular(metadata)
+        fused = self.film(v, t)
+        return self.classifier(fused)
 
-    def predict_with_uncertainty(self, image: torch.Tensor, metadata: torch.Tensor, num_samples: int = 30):
-        """
-        Monte Carlo Dropout for uncertainty estimation.
-        """
-        self.train() # Enable dropout
-        predictions = []
-        with torch.no_grad():
-            for _ in range(num_samples):
-                out = self.forward(image, metadata)
-                probs = torch.softmax(out, dim=1)
-                predictions.append(probs.unsqueeze(0))
-                
-        predictions = torch.cat(predictions, dim=0) # (num_samples, batch, num_classes)
-        mean_probs = predictions.mean(dim=0)
-        uncertainty = predictions.std(dim=0).mean(dim=1) # simplified uncertainty metric
-        return mean_probs, uncertainty
+
+class Dermascope_FiLM_Alternative(nn.Module):
+    def __init__(self, num_tabular_features: int, modele: str = "resnet50"):
+        super().__init__()
+        if modele == "resnet50": 
+            self.vision = resnet50(weights=ResNet50_Weights.DEFAULT)
+            num_v = self.vision.fc.in_features
+            self.vision.fc = nn.Identity()
+        elif modele == "densenet121": 
+            self.vision = densenet121(weights=DenseNet121_Weights.DEFAULT)
+            num_v = self.vision.classifier.in_features
+            self.vision.classifier = nn.Identity()
+        else:
+            raise ValueError("Modèle non supporté. Choisissez resnet50 ou densenet121.")
+            
+        self.compress = nn.Sequential(
+            nn.Linear(num_v, 512), 
+            nn.BatchNorm1d(512), 
+            nn.SiLU()
+        )
+        
+        self.tabular = nn.Sequential(
+            nn.Linear(num_tabular_features, 64), 
+            nn.BatchNorm1d(64), 
+            nn.SiLU(), 
+            nn.Dropout(0.2), 
+            nn.Linear(64, 32), 
+            nn.BatchNorm1d(32), 
+            nn.SiLU()
+        )
+        
+        self.film = FiLM_Layer(tabular_dim=32, vision_dim=512)
+        self.classifier = nn.Sequential(
+            nn.Linear(512, 256), 
+            nn.BatchNorm1d(256), 
+            nn.SiLU(), 
+            nn.Dropout(0.4), 
+            nn.Linear(256, 1)
+        )
+        
+    def forward(self, images: torch.Tensor, metadata: torch.Tensor) -> torch.Tensor:
+        v = self.compress(self.vision(images))
+        t = self.tabular(metadata)
+        fused = self.film(v, t)
+        return self.classifier(fused)
+
+
+class DermascopeFocalLoss(nn.Module):
+    """
+    Focal Loss optimisée pour les datasets déséquilibrés.
+    """
+    def __init__(self, alpha: float = 0.75, gamma: float = 2.0): 
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        probs = torch.sigmoid(logits)
+        pt = targets * probs + (1 - targets) * (1 - probs)
+        alpha_t = targets * self.alpha + (1 - targets) * (1 - self.alpha)
+        
+        bce_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')
+        focal_loss = alpha_t * ((1 - pt) ** self.gamma) * bce_loss
+        return focal_loss.mean()
