@@ -6,8 +6,6 @@ opencv-python
 matplotlib
 seaborn
 scikit-learn
-gradio
+streamlit
 tqdm
 pillow
-onnx
-onnxruntime
