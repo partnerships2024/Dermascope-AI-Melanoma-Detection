@@ -377,14 +377,6 @@ To validate the effectiveness of our FiLM-conditioned ensemble, we evaluated the
 </div>
 ---
 
-### Motivational Research Papers 
-
-[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
-
-[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
-
-[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
-
 ### Dataset Bias Considerations
 
 The HAM10000 dataset has known limitations:
@@ -392,6 +384,14 @@ The HAM10000 dataset has known limitations:
 - **Geographic bias** — Primarily European patient population
 - **Age distribution** — May not represent all demographic groups equally
 - **Imaging conditions** — Captured under controlled dermoscopic conditions; performance may degrade on consumer-grade photographs
+
+### Motivational Research Papers 
+
+[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
+
+[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
+
+[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
 
 ---
 
