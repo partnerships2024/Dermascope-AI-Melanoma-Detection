@@ -70,6 +70,7 @@ Design and implement **Dermascope AI**, a multimodal deep learning system that:
 |:---|:---|
 | **Name** | HAM10000 (Human Against Machine with 10,000 training images) |
 | **Source** | [ISIC Archive](https://www.isic-archive.com/) / [Kaggle](https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000) |
+| **Source** | [![ISIC Archive](https://img.shields.io/badge/ISIC%20Archive-Official%20Dataset-blue?style=for-the-badge)](https://www.isic-archive.com/) [![Kaggle](https://img.shields.io/badge/Kaggle-HAM10000%20Dataset-20BEFF?style=for-the-badge)](https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000) |
 | **Total Images** | 10,015 dermoscopic images |
 | **Image Resolution** | Resized to 512×512 RGB |
 | **Task** | Binary classification |
