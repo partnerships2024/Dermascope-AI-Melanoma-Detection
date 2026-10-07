@@ -523,7 +523,7 @@ Principal Scientist & Founding Director
 
 **CHI Lab, ICRI-STE** 
 
-This project forms part of the CHI Lab's computational healthcare and cancer research activities, integrating **systems-oriented computational research, cancer genomics, and artificial intelligence/deep learning**
+This project forms part of the CHI Lab's AI in healthcare and cancer research activities
 
 [![CHI Lab](https://img.shields.io/badge/CHI%20Lab-Scientific%20Events%20%26%20Early%20Career%20Researchers%E2%80%99%20R%26D%20Training%20Programmes-0A7EA4?style=for-the-badge)](https://partnerships2024.github.io/ICRI-STE-Scientific-Events-Research-Training.github.io/)
 
