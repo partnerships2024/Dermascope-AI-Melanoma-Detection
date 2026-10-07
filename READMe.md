@@ -361,47 +361,20 @@ python -m src.evaluate --checkpoint models/best_model.pth
 ```bash
 python -m app.gradio_app
 ```
+## 📊 Experimental Results: Model Performance & Clinical Safety
 
----
+To validate the effectiveness of our FiLM-conditioned ensemble, we evaluated the system on the ISIC 2020 validation set. By optimising the decision threshold using the Youden Index, we significantly reduced the false negative rate, which is critical for clinical melanoma screening.
 
-## Research Reproducibility Standard
+<div align="center">
+  <img src="./results/roc_curve.png" alt="ROC Curve" width="45%"/>
+</div>
 
-Every CHI Lab research project should aim to be:
+<br>
 
-**Reproducible • Documented • Traceable • Auditable**
-
-At minimum, project documentation should identify:
-
-- Research objective
-- Research question and/or hypothesis
-- Dataset source
-- Dataset version or access date, where relevant
-- Software environment
-- Python/MATLAB version
-- Required packages and dependencies
-- Experimental procedure
-- Evaluation metrics
-- Results
-- Limitations
-- References
-- Reproducibility instructions
-
-A well-documented research repository should enable another researcher to understand:
-
-> **What was done? Why was it done? How was it done? What was obtained? Can it be reproduced?**
-
----
-
-### Recommended Uses
-
-- Run introductory research notebooks
-- Test AI/ML models
-- Perform exploratory data analysis
-- Reproduce selected literature methods
-- Conduct ECR mini-project experiments
-- Evaluate computational workflows
-- Share executable research notebooks
-
+<div align="center">
+  <img src="./results/cm_default.png" alt="Confusion Matrix Default" width="45%"/>
+  <img src="./results/cm_optimal.png" alt="Confusion Matrix Optimal" width="45%"/>
+</div>
 ---
 ### Literture
 
@@ -536,21 +509,6 @@ The CHI Lab research workflow can be summarised as:
         └─────────────────────────────┘
 ```
 
-
-## 📊 Experimental Results: Model Performance & Clinical Safety
-
-To validate the effectiveness of our FiLM-conditioned ensemble, we evaluated the system on the ISIC 2020 validation set. By optimising the decision threshold using the Youden Index, we significantly reduced the false negative rate, which is critical for clinical melanoma screening.
-
-<div align="center">
-  <img src="./results/roc_curve.png" alt="ROC Curve" width="45%"/>
-</div>
-
-<br>
-
-<div align="center">
-  <img src="./results/cm_default.png" alt="Confusion Matrix Default" width="45%"/>
-  <img src="./results/cm_optimal.png" alt="Confusion Matrix Optimal" width="45%"/>
-</div>
 # Computational Healthcare Intelligence Lab (CHI Lab) 
 ## Research Leadership
 
