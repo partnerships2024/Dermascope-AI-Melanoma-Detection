@@ -403,57 +403,9 @@ A well-documented research repository should enable another researcher to unders
 - Share executable research notebooks
 
 ---
+### Literture
 
-# CHI Lab Repository
-
-| Repository | Access |
-|:---|:---|
-| **CHI Lab — Foundations and Practical Intuition in Machine Learning & Deep Learning** | [![GitHub](https://img.shields.io/badge/GitHub-Open%20Science-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/didarmurad2019/ICRI-STE-AI-ML-Healthcare.git) |
-| **CHI Lab — ECR Research Training on Lung and/or Pancreatic Cancer** | [![GitHub](https://img.shields.io/badge/GitHub-Open%20Science%20%7C%20ECR%20Training-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/partnerships2024/CHI-Lab-Research-Pancreatic-Cancer.git) |
-| **Virtual Lab: An AI-Driven Agentic System for PanTS Using 3D Medical Images** | [![GitHub](https://img.shields.io/badge/GitHub-Main%20Research%20Contribution-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/partnerships2024/Virtual-Lab-AI-Driven-Agentic-System-PanTS-Main-Project.git) |
-
----
-
-# CHI Lab Research Project Document
-
-[![Research Document](https://img.shields.io/badge/CHI%20Lab-Research%20Document-0077B6?style=for-the-badge&logo=googledocs&logoColor=white)](./docs/dermascope_ai_research_paper.pdf)
-
-This document provides supporting information for the CHI Lab research activities and project development process.
-
----
-
-# Important Links
-
-| Resource | Link |
-|:---|:---|
-| **Future Leaders Network** | [![Future Leaders](https://img.shields.io/badge/Future%20Leaders-ECR%20Network-6C5CE7?style=for-the-badge&logo=googlechrome&logoColor=white)](https://icriste.com/future-leaders/) |
-| **YouTube Channel** | [![YouTube](https://img.shields.io/badge/YouTube-ICRI--STE%20Insights-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@ICRI-STEInsights) |
-| **WhatsApp Channel** | [![WhatsApp](https://img.shields.io/badge/WhatsApp-ICRI--STE%20Channel-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://whatsapp.com/channel/0029Vb7tRBi3LdQcB3DEYU2F) |
-| **CHI Lab Google Document** | [![Google Docs](https://img.shields.io/badge/Google%20Docs-Help%20Desk%20in%20R%26D-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://docs.google.com/document/d/10ijo9jq8jDHfeKm0g2J2bKDr94_N3Q633KCtohv06o8/edit?usp=sharing) |
-| **Research Concept Note** | [![Research Concept Note Template](https://img.shields.io/badge/Research%20Concept%20Note-Template-F39C12?style=for-the-badge&logo=google&logoColor=white)](https://docs.google.com/document/d/1bc9-B7rEsXqSk5xmW-SJpFm8GYLqN-8LLq2sdW6-zBA/edit?usp=sharing) |
-| **CHI Lab Book Direction** | [![CHI Lab Book Direction](https://img.shields.io/badge/CHI%20Lab%20Book%20Direction-Computational%20Healthcare%20Intelligence-F39C12?style=for-the-badge&logo=google&logoColor=white)](https://drive.google.com/file/d/1uWiaKgm3xkiVxtT468gQ8cMiN-ugLNCg/view?usp=drive_link) |
-| **Research Proposals / Project Calls** | *To be added* |
-
----
-
-# Research Ethics & Responsible AI
-
-Healthcare and biomedical research require particular attention to:
-
-- Privacy and data protection
-- Data governance
-- Patient confidentiality
-- Dataset licensing and terms of use
-- Reproducibility
-- Bias and fairness
-- Model interpretability
-- Responsible AI
-- Scientific integrity
-- Appropriate attribution
-
-This repository is intended for **research, training, and educational purposes**.
-
-Computational results should not be interpreted as clinical advice or used for clinical decision-making without appropriate **clinical validation, ethical oversight, governance, and regulatory approval**, where applicable.
+[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
 
 ### Dataset Bias Considerations
 
@@ -584,52 +536,6 @@ The CHI Lab research workflow can be summarised as:
         └─────────────────────────────┘
 ```
 
----
-
-# Computational Healthcare Intelligence Lab (CHI Lab) 
-## Research Leadership
-
-**Dr. Didar Murad**
-
-Principal Investigator & Founding Director
-
-**CHI Lab, ICRI-STE** 
-
-This project forms part of the CHI Lab's computational healthcare and cancer research activities, integrating **systems-oriented computational research, cancer genomics, and artificial intelligence/deep learning**
-
-[![CHI Lab](https://img.shields.io/badge/CHI%20Lab-Research-0A7EA4?style=for-the-badge)](https://icriste.com/computational-healthcare-intelligence-lab-chi-lab/)
-[![ICRI-STE Website](https://img.shields.io/badge/Website-ICRI--STE-00A6A6?style=for-the-badge&logo=googlechrome&logoColor=white)](https://icriste.com)
-
----
-
-## About CHI Lab
-
-The **Computational Healthcare Intelligence Lab (CHI Lab)** is a dry research laboratory focused on the integration of **computational science, artificial intelligence and machine learning (AI/ML), systems biology, biomedical modelling, medical imaging, and intelligent healthcare systems**.
-
-### Current CHI Lab Research Direction
-
-**Computational Cancer Research — Lung and Pancreatic Cancer**
-
-This repository provides an **open and structured research environment for selected Early Career Researchers (ECRs) of ICRI-STE**, supporting the development of research skills through literature-driven projects, reproducible computational experiments, scientific documentation, and collaborative research.
-
-> **Learn → Read → Implement → Experiment → Analyse → Document → Reproduce → Collaborate → Publish**
-
-## Research Focus
-
-The repository covers the following research areas:
-
-- Deep learning for dermatological image classification
-- Multimodal data fusion (visual and clinical metadata)
-- Feature-wise Linear Modulation (FiLM) for conditional feature learning
-- Transfer learning and fine-tuning of pretrained convolutional networks
-- Medical image preprocessing (hair removal, lesion segmentation, background suppression)
-- Class imbalance handling in clinical datasets (Focal Loss, asymmetric augmentation)
-- Uncertainty-aware inference and Test-Time Augmentation
-- Clinically optimised decision thresholds for high-sensitivity screening
-- Explainable and interpretable AI for healthcare
-- Reproducible computational experiments in computational dermatology
-- Research documentation, validation, and collaboration
-
 
 ## 📊 Experimental Results: Model Performance & Clinical Safety
 
@@ -645,3 +551,18 @@ To validate the effectiveness of our FiLM-conditioned ensemble, we evaluated the
   <img src="./results/cm_default.png" alt="Confusion Matrix Default" width="45%"/>
   <img src="./results/cm_optimal.png" alt="Confusion Matrix Optimal" width="45%"/>
 </div>
+# Computational Healthcare Intelligence Lab (CHI Lab) 
+## Research Leadership
+
+**Dr. Didar Murad**
+
+Principal Investigator & Founding Director
+
+**CHI Lab, ICRI-STE** 
+
+This project forms part of the CHI Lab's computational healthcare and cancer research activities, integrating **systems-oriented computational research, cancer genomics, and artificial intelligence/deep learning**
+
+[![CHI Lab](https://img.shields.io/badge/CHI%20Lab-Research-0A7EA4?style=for-the-badge)](https://icriste.com/computational-healthcare-intelligence-lab-chi-lab/)
+[![ICRI-STE Website](https://img.shields.io/badge/Website-ICRI--STE-00A6A6?style=for-the-badge&logo=googlechrome&logoColor=white)](https://icriste.com)
+
+---
