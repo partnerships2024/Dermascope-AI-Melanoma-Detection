@@ -519,7 +519,7 @@ The CHI Lab research workflow can be summarised as:
 
 **Dr. Didar Murad**
 
-Principal Investigator & Founding Director
+Principal Scientist & Founding Director
 
 **CHI Lab, ICRI-STE** 
 
