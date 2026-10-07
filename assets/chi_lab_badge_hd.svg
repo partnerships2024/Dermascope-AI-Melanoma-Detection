@@ -1,0 +1,43 @@
+<svg width="280" height="280" viewBox="0 0 280 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="280" height="280" rx="24" fill="#FFFFFF"/>
+  <circle cx="140" cy="135" r="110" stroke="#091D28" stroke-width="4.5" fill="none"/>
+  <circle cx="140" cy="135" r="101" stroke="#0D9488" stroke-width="2" stroke-dasharray="4 4" fill="none"/>
+  
+  <!-- Outer Arch Text -->
+  <path id="textPath" d="M 46 135 A 94 94 0 0 1 234 135" fill="none"/>
+  <text font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="9" font-weight="800" fill="#091D28" letter-spacing="0.8">
+    <textPath href="#textPath" startOffset="50%" text-anchor="middle">
+      INTERNATIONAL COUNCIL FOR RESEARCH &amp; INNOVATION IN SCI, TECH &amp; ENGG
+    </textPath>
+  </text>
+  
+  <!-- Brain Icon with Medical Cross -->
+  <g transform="translate(75, 42)">
+    <!-- Brain Left Hemisphere -->
+    <path d="M65 28C50 28 38 40 38 55C38 63 42 70 48 74C42 78 38 86 38 95C38 110 50 122 65 122V28Z" fill="#091D28"/>
+    <circle cx="50" cy="48" r="3.5" fill="#38BDF8"/>
+    <circle cx="45" cy="68" r="3.5" fill="#38BDF8"/>
+    <circle cx="50" cy="93" r="3.5" fill="#38BDF8"/>
+    <path d="M50 48L65 53M45 68L65 75M50 93L65 93" stroke="#38BDF8" stroke-width="2"/>
+    
+    <!-- Brain Right Hemisphere -->
+    <path d="M65 28C80 28 92 40 92 55C92 63 88 70 82 74C88 78 92 86 92 95C92 110 80 122 65 122V28Z" fill="#0D9488" opacity="0.9"/>
+    
+    <!-- Central Green Cross -->
+    <circle cx="65" cy="75" r="15" fill="#0D9488" stroke="#FFFFFF" stroke-width="3"/>
+    <path d="M65 66V84M56 75H74" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+  
+  <!-- Supporting Hand Icon -->
+  <path d="M92 178C92 178 112 165 140 165C168 165 188 178 188 178C188 178 173 192 140 192C107 192 92 178 92 178Z" fill="#091D28"/>
+  
+  <!-- CHI Lab Text -->
+  <text x="140" y="222" font-family="'Inter', sans-serif" font-size="28" font-weight="900" text-anchor="middle" fill="#091D28">
+    CHI <tspan fill="#0D9488">Lab</tspan>
+  </text>
+  
+  <!-- Bottom Text -->
+  <text x="140" y="244" font-family="'Inter', sans-serif" font-size="9" font-weight="700" text-anchor="middle" fill="#64748B" letter-spacing="1">
+    Data • Intelligence • Innovation • Impact
+  </text>
+</svg>
