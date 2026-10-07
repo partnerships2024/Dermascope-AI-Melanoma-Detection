@@ -629,3 +629,19 @@ The repository covers the following research areas:
 - Explainable and interpretable AI for healthcare
 - Reproducible computational experiments in computational dermatology
 - Research documentation, validation, and collaboration
+
+
+## 📊 Experimental Results: Model Performance & Clinical Safety
+
+To validate the effectiveness of our FiLM-conditioned ensemble, we evaluated the system on the ISIC 2020 validation set. By optimising the decision threshold using the Youden Index, we significantly reduced the false negative rate, which is critical for clinical melanoma screening.
+
+<div align="center">
+  <img src="./results/roc_curve.png" alt="ROC Curve" width="45%"/>
+</div>
+
+<br>
+
+<div align="center">
+  <img src="./results/cm_default.png" alt="Confusion Matrix Default" width="45%"/>
+  <img src="./results/cm_optimal.png" alt="Confusion Matrix Optimal" width="45%"/>
+</div>
