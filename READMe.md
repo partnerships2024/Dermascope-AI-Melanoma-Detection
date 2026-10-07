@@ -376,7 +376,12 @@ To validate the effectiveness of our FiLM-conditioned ensemble, we evaluated the
   <img src="./results/cm_optimal.png" alt="Confusion Matrix Optimal" width="45%"/>
 </div>
 ---
-### Literture
+
+### Motivational Research Papers 
+
+[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
+
+[![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
 
 [![Paper](https://img.shields.io/badge/Paper-PDF-purple?style=for-the-badge)](https://www.cs.jhu.edu/~zongwei/publication/bassi2025learning.pdf)
 
