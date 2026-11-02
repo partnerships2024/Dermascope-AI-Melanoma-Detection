@@ -396,12 +396,12 @@ The HAM10000 dataset has known limitations:
 ---
 
 
-# Important Links
+## 🔗 Important Links
 
-| Resource | Link |
-|:---|:---|
-| **Scientific Events & Research Training** | [![Scientific Activities](https://img.shields.io/badge/ICRI--STE-Scientific%20Events%20%26%20Research%20Training-0077B5?style=for-the-badge&logo=googlecalendar&logoColor=white)](https://partnerships2024.github.io/ICRI-STE-Scientific-Activities.github.io/) |
-| **YouTube Channel** | [![YouTube](https://img.shields.io/badge/YouTube-ICRI--STE%20Insights-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/BBauQB7YsiY?si=cNSBor9FF5VM45Te) |
+| Resource | Access |
+|:---|:---:|
+| **📅 Scientific Activities** | [![Scientific Activities](https://img.shields.io/badge/Explore-Scientific_Events_%26_Research_Training-0077B5?style=for-the-badge&logo=googlecalendar&logoColor=white)](https://partnerships2024.github.io/ICRI-STE-Scientific-Activities.github.io/) |
+| **▶️ YouTube Channel** | [![YouTube](https://img.shields.io/badge/Watch-ICRI--STE_Insights-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/BBauQB7YsiY?si=cNSBor9FF5VM45Te) |
 
 
 
